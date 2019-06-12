@@ -1,0 +1,7 @@
+[package]
+name = "initception"
+version = "0.1.0"
+authors = ["Sojan James <Sojan.James@gmail.com>"]
+edition = "2018"
+
+[dependencies]
