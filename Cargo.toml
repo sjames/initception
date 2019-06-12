@@ -5,3 +5,5 @@ authors = ["Sojan James <Sojan.James@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+nix = "0.14.1"
+
