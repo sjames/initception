@@ -1,4 +1,4 @@
-use nix::mount::{mount, umount, MsFlags};
+use nix::mount::{mount, MsFlags};
 use nix::sys::stat;
 use nix::unistd;
 

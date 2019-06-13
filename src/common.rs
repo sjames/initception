@@ -1,3 +1,6 @@
+extern crate caps;
+use caps::Capability;
+
 pub struct Config {
     pub hostname: String,
     pub true_init: bool,
@@ -29,4 +32,16 @@ impl Context {
     pub fn new(config: Config) -> Result<Context, &'static str> {
         Ok(Context { config })
     }
+}
+
+pub fn drop_caps(caps_to_drop: &[Capability]) -> Result<(), &'static str> {
+    for cap in caps_to_drop.iter() {
+        if let Ok(()) = caps::drop(None, caps::CapSet::Permitted, *cap) {
+
+        } else {
+            panic!("Unable to drop caps");
+        }
+    }
+
+    Ok(())
 }

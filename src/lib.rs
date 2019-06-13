@@ -19,7 +19,7 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
         make_basic_devices()?;
     }
 
-    run_zygote(&mut context);
+    run_zygote(&mut context)?;
 
     Ok(())
 }
