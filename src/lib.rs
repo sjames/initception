@@ -1,37 +1,25 @@
 extern crate nix;
 use std::error::Error;
+extern crate ipc_channel;
 
+pub mod common;
 mod device;
+mod zygote;
+
+use crate::common::*;
 use crate::device::{make_basic_devices, mount_basics};
+use crate::zygote::run_zygote;
+// ipc_channel for communicating with zygote
 
-pub struct Config {
-    pub hostname: String,
-    pub true_init: bool,
-}
+pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
+    let mut context = Context::new(config).unwrap();
 
-impl Config {
-    pub fn new(args: &[String]) -> Result<Config, &'static str> {
-        if args.len() < 2 {
-            let hostname = "localhost".to_string();
-            Ok(Config {
-                hostname: hostname,
-                true_init: true,
-            })
-        } else {
-            let hostname = args[1].clone();
-            Ok(Config {
-                hostname: hostname,
-                true_init: false,
-            })
-        }
-    }
-}
-
-pub fn run(config: &Config) -> Result<(), Box<dyn Error>> {
-    if config.true_init {
+    if context.config.true_init {
         mount_basics()?;
         make_basic_devices()?;
     }
+
+    run_zygote(&mut context);
 
     Ok(())
 }

@@ -6,4 +6,5 @@ edition = "2018"
 
 [dependencies]
 nix = "0.14.1"
-
+ipc-channel = "0.12.0"
+serde = { version = "1.0", features = ["derive"] }
