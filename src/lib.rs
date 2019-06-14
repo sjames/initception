@@ -4,6 +4,7 @@ extern crate ipc_channel;
 
 pub mod common;
 mod device;
+mod property;
 mod zygote;
 
 use crate::common::*;
@@ -19,7 +20,7 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
         make_basic_devices()?;
     }
 
-    run_zygote(&mut context)?;
+    context.zygote_client_context = Some(run_zygote(&mut context).expect("Unable to run zygote"));
 
     Ok(())
 }

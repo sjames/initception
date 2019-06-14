@@ -1,4 +1,5 @@
 extern crate caps;
+use crate::zygote::ZycoteClientContext;
 use caps::Capability;
 
 pub struct Config {
@@ -26,11 +27,15 @@ impl Config {
 
 pub struct Context {
     pub config: Config, // The context will own the config
+    pub zygote_client_context: Option<ZycoteClientContext>,
 }
 
 impl Context {
     pub fn new(config: Config) -> Result<Context, &'static str> {
-        Ok(Context { config })
+        Ok(Context {
+            config,
+            zygote_client_context: None,
+        })
     }
 }
 
