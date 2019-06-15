@@ -8,6 +8,7 @@ type ElementId = usize;
 struct Property {
     name: String,
     parent_id: ElementId,
+    is_set: bool,
 }
 
 #[derive(Debug)]
@@ -17,20 +18,28 @@ struct Attribute {
     property_id: ElementId,
 }
 
-enum Watch {
-    DirWatch(u32),
+enum WatchType {
     PropertyWatch(u32),
     AttributeWatch(u32),
 }
 
-struct Watcher {
-    watch: Watch,
+enum WatchRule {
+    OnChange,
+    Equals(String, String),
 }
 
-pub struct PropertyServer {
+struct Watcher<T> {
+    watch: WatchType,
+    rule: WatchRule,
+    id : ElementId,
+    context : T,
+}
+
+pub struct PropertyServer<T> {
     properties: Vec<Property>,
     attributes: Vec<Attribute>,
-    watchers: Vec<Watcher>,
+    watchers: Vec<Watcher<T>>,
+    deleted_watchers: Vec<Watcher<T>>,
 }
 
 #[derive(Debug)]
@@ -54,17 +63,19 @@ impl std::error::Error for PropertyError {
     }
 }
 
-impl PropertyServer {
-    pub fn new() -> PropertyServer {
+impl<T> PropertyServer<T> {
+    pub fn new() -> PropertyServer<T> {
         let mut server = PropertyServer {
             properties: Vec::new(),
             attributes: Vec::new(),
             watchers: Vec::new(),
+            deleted_watchers: Vec::new(),
         };
         //The first property is the dummy root property just so that we get an index 0 for the root.
         server.properties.push(Property {
             name: "DUMMY_ROOT_PROP".to_string(),
             parent_id: 0,
+            is_set: false,
         });
         server
     }
@@ -115,7 +126,7 @@ impl PropertyServer {
         }
     }
 
-    pub fn check_path(&self, name: &str, parent: ElementId) -> Result<ElementId, PropertyError> {
+    fn check_path(&self, name: &str, parent: ElementId) -> Result<ElementId, PropertyError> {
         if let Some(id) = self.properties.iter().position(|x| {
             //            println!("find : {:?}", &x.name);
             x.parent_id == parent && x.name == name
@@ -124,6 +135,32 @@ impl PropertyServer {
         } else {
             Err(PropertyError::NotFound)
         }
+    }
+
+    // create a watch. Take ownership of watch that will be returned when the watch has been triggered
+    pub fn watch(
+        &mut self,
+        path: &str,
+        watch: T,
+        rule: WatchRule,
+        watch_type: WatchType,
+    ) -> Result<(), PropertyError> {
+        let mut parent_id : ElementId = 0;
+
+        for p in path.split('.') {
+            parent_id = self.add_path(p, parent_id, false);
+        }
+
+        match rule {
+            WatchRule::Equals(k,v) => {
+
+            }
+            WatchRule::OnChange => {
+
+            }
+        }
+
+        Err(PropertyError::NotFound)
     }
 
     pub fn set(
@@ -135,7 +172,7 @@ impl PropertyServer {
         println!("Vector is {:?}", vec);
         let mut parent_id = 0;
         for prop_path in vec.iter() {
-            parent_id = self.add_path(prop_path, parent_id);
+            parent_id = self.add_path(prop_path, parent_id, true);
         }
 
         if let Some((name, value)) = attrib {
@@ -148,26 +185,31 @@ impl PropertyServer {
 
     /// If the property already exists return the ElementID of the property, else
     /// create it and return its ElementID
-    fn add_path(&mut self, name: &str, parent: ElementId) -> ElementId {
-        if let Some(id) = self.properties.iter().position(|x| {
-            //            println!("find : {:?}", &x.name);
-            x.parent_id == parent && x.name == name
-        }) {
+    fn add_path(&mut self, name: &str, parent: ElementId, is_set: bool) -> ElementId {
+        if let Some(id) = self
+            .properties
+            .iter()
+            .position(|x| x.parent_id == parent && x.name == name)
+        {
+            // In case the property was already present because of a watch
+            if is_set {self.properties[id].is_set = true;}
             id
         } else {
             self.properties.push(Property {
                 name: name.to_string(),
                 parent_id: parent,
+                is_set: is_set,
             });
             self.properties.len() - 1 as ElementId
         }
     }
 
     fn add_attrib(&mut self, name: &str, value: &str, property_id: ElementId) -> ElementId {
-        if let Some(id) = self.attributes.iter().position(|x| {
-            //            println!("find : {:?}", &x.name);
-            x.property_id == property_id && x.name == name
-        }) {
+        if let Some(id) = self
+            .attributes
+            .iter()
+            .position(|x| x.property_id == property_id && x.name == name)
+        {
             self.attributes[id].value = value.to_string();
             id
         } else {
@@ -185,14 +227,24 @@ impl PropertyServer {
 fn test_property_server() {
     let mut server = PropertyServer::new();
 
-    server.set("root.service.property", None);
-    server.set("root.service.property", Some(("attrib", "attrib_value")));
-    server.set("root.service.property", Some(("attrib", "attrib_value1")));
-    server.set("root.service.property", Some(("attrib1", "attrib_value2")));
+    server.set("root.a.property", None);
+    server.set("root.b.property", Some(("attrib1", "attrib_value1")));
+    server.set("root.c.property", Some(("attrib2", "attrib_value2")));
+    server.set("root.d.property", Some(("attrib3", "attrib_value3")));
+    server.set("root.e.property", Some(("attrib4", "attrib_value4")));
+    server.set("root.f.property", Some(("attrib5", "attrib_value5")));
+    server.set("root.g.property", Some(("attrib6", "attrib_value6")));
+    server.set("root.h.property", Some(("attrib7", "attrib_value7")));
+    server.set("a.b.c.d.e.f.g.h.i", Some(("attribZZZZ", "BOOHOO")));
 
     println!("Get {:?}", server.get("root.service.property", None));
-    println!("Get {:?}", server.get("root.service.property", Some("attrib1")));
-    println!("Get {:?}", server.get("root.service.property", Some("attrib1sdsd")));
-
-
+    println!(
+        "Get {:?}",
+        server.get("root.service.property", Some("attrib1"))
+    );
+    println!(
+        "Get {:?}",
+        server.get("root.service.property", Some("attrib1sdsd"))
+    );
+    println!("Get {:?}", server.get("a.b.c.d.e.f.g.h.i", None));
 }
