@@ -24,6 +24,7 @@ enum WatchType {
 }
 
 enum WatchRule {
+    OnCreate,
     OnChange,
     Equals(String, String),
 }
@@ -237,6 +238,7 @@ fn test_property_server() {
     server.set("root.h.property", Some(("attrib7", "attrib_value7")));
     server.set("a.b.c.d.e.f.g.h.i", Some(("attribZZZZ", "BOOHOO")));
 
+
     println!("Get {:?}", server.get("root.service.property", None));
     println!(
         "Get {:?}",
@@ -247,4 +249,15 @@ fn test_property_server() {
         server.get("root.service.property", Some("attrib1sdsd"))
     );
     println!("Get {:?}", server.get("a.b.c.d.e.f.g.h.i", None));
+    
+    // set a watch on when root.a.property gets created
+    server.watch("root.a.property", (), WatchRule::OnCreate, Some(WatchType::PropertyWatch));
+
+    // set a watch on when root.a.property changes
+    server.watch("root.a.property", (), WatchRule::OnChange, Some(WatchType::PropertyWatch));
+
+    // set a watch when the attribute key of a property becomes value
+    server.watch("root.a.property", (), WatchRule::Equals("key","value", None);
+
+
 }
