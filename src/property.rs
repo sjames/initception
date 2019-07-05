@@ -159,6 +159,9 @@ impl<T> PropertyServer<T> {
             WatchRule::OnChange => {
 
             }
+            WatchRule::OnCreate => {
+                
+            }
         }
 
         Err(PropertyError::NotFound)
@@ -238,7 +241,7 @@ fn test_property_server() {
     server.set("root.h.property", Some(("attrib7", "attrib_value7")));
     server.set("a.b.c.d.e.f.g.h.i", Some(("attribZZZZ", "BOOHOO")));
 
-
+/*
     println!("Get {:?}", server.get("root.service.property", None));
     println!(
         "Get {:?}",
@@ -258,6 +261,6 @@ fn test_property_server() {
 
     // set a watch when the attribute key of a property becomes value
     server.watch("root.a.property", (), WatchRule::Equals("key","value", None);
-
+*/
 
 }
