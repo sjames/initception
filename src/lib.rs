@@ -14,6 +14,7 @@ use crate::zygote::run_zygote;
 
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     let mut context = Context::new(config).unwrap();
+    println!("Starting");
 
     if context.config.true_init {
         mount_basics()?;

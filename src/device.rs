@@ -14,7 +14,7 @@ struct Device {
     file_mode: nix::sys::stat::Mode,
 }
 
-const DEVICES: [Device; 6] = [
+const DEVICES: [Device; 8] = [
     Device {
         path: "/dev/console",
         dev_type: nix::sys::stat::SFlag::S_IFCHR,
@@ -57,6 +57,20 @@ const DEVICES: [Device; 6] = [
         minor: 17,
         file_mode: nix::sys::stat::Mode::S_IRWXU,
     },
+    Device {
+        path: "/dev/random",
+        dev_type: nix::sys::stat::SFlag::S_IFCHR,
+        major: 1,
+        minor: 8,
+        file_mode: nix::sys::stat::Mode::S_IRWXU,
+    },
+    Device {
+        path: "/dev/urandom",
+        dev_type: nix::sys::stat::SFlag::S_IFCHR,
+        major: 1,
+        minor: 9,
+        file_mode: nix::sys::stat::Mode::S_IRWXU,
+    },
 ];
 
 pub fn make_basic_devices() -> Result<(), Box<dyn Error>> {
@@ -79,9 +93,16 @@ pub fn mount_basics() -> Result<(), Box<dyn Error>> {
     let path_dev_pts: &'static [u8] = b"/dev/pts";
     let path_dev_socket: &'static [u8] = b"/dev/socket";
 
-    unistd::mkdir(path_dev, stat::Mode::S_IRWXU)?;
+    println!("1");
+
+    //unistd::mkdir(path_dev, stat::Mode::S_IRWXU);
+    println!("2");
+
     unistd::mkdir(path_proc, stat::Mode::S_IRWXU)?;
+    println!("3");
+
     unistd::mkdir(path_sys, stat::Mode::S_IRWXU)?;
+    println!("4");
 
     //const NONE: Option<&'static [u8]> = None;
 
@@ -93,9 +114,13 @@ pub fn mount_basics() -> Result<(), Box<dyn Error>> {
         Some(b"mode=0755".as_ref()),
     )
     .unwrap_or_else(|e| panic!("mount of /dev failed: {}", e));
+    println!("5");
 
     unistd::mkdir(path_dev_pts, stat::Mode::S_IRWXU)?;
+    println!("6");
+
     unistd::mkdir(path_dev_socket, stat::Mode::S_IRWXU)?;
+    println!("7");
 
     mount(
         Some(b"devpts".as_ref()),
@@ -105,6 +130,7 @@ pub fn mount_basics() -> Result<(), Box<dyn Error>> {
         Some(b"".as_ref()),
     )
     .unwrap_or_else(|e| panic!("mount of /dev/pts failed: {}", e));
+    println!("8");
 
     mount(
         Some(b"proc".as_ref()),
@@ -114,6 +140,7 @@ pub fn mount_basics() -> Result<(), Box<dyn Error>> {
         Some(b"".as_ref()),
     )
     .unwrap_or_else(|e| panic!("mount of /proc failed: {}", e));
+    println!("9");
 
     mount(
         Some(b"sysfs".as_ref()),
@@ -123,6 +150,7 @@ pub fn mount_basics() -> Result<(), Box<dyn Error>> {
         Some(b"".as_ref()),
     )
     .unwrap_or_else(|e| panic!("mount of /sys failed: {}", e));
+    println!("10");
 
     Ok(())
 }
