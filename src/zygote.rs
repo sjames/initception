@@ -73,11 +73,22 @@ pub fn run_zygote(context: &Context) -> Result<ZycoteClientContext, &'static str
         Ok(ForkResult::Parent { child, .. }) => {
             println!(
                 "Continuing execution in parent process, new child has pid: {}",
+                //TODO: Not the final list!
                 child
             );
 
+            let caps_to_drop = [
+                Capability::CAP_CHOWN,
+                Capability::CAP_DAC_READ_SEARCH,
+                Capability::CAP_FOWNER,
+                Capability::CAP_MKNOD,
+                Capability::CAP_SYS_TIME,
+                Capability::CAP_SYS_RAWIO,
+            ];
+            drop_caps(&caps_to_drop).expect("Unable to drop caps in pid 0");
+
             let cmd = ZygoteCommand::CmdPing;
-            zygote_client_context.tx.send(cmd);
+            zygote_client_context.tx.send(cmd).unwrap();
 
             Ok(zygote_client_context)
         }
@@ -109,18 +120,7 @@ fn handle_message(command: ZygoteCommand) -> Result<(), ZygoteError> {
 }
 
 fn zygote_main(context: ZygoteContext) -> Result<(), &'static str> {
-    //TODO: Not the final list!
-    let caps_to_drop = [
-        Capability::CAP_CHOWN,
-        Capability::CAP_DAC_READ_SEARCH,
-        Capability::CAP_FOWNER,
-        Capability::CAP_MKNOD,
-        Capability::CAP_SYS_TIME,
-        Capability::CAP_SYS_RAWIO,
-    ];
-
     println!("In zygote main");
-    drop_caps(&caps_to_drop).expect("Unable to drop caps in Zygote");
     println!("In zygote main 1");
     let mut rx_set = IpcReceiverSet::new().unwrap();
     let _rx_id = rx_set.add(context.rx).unwrap();

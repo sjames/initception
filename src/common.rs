@@ -39,14 +39,15 @@ impl Context {
     }
 }
 
-pub fn drop_caps(caps_to_drop: &[Capability]) -> Result<(), &'static str> {
+pub fn drop_caps(caps_to_drop: &[Capability]) -> Result<(), caps::errors::Error> {
     for cap in caps_to_drop.iter() {
-        if let Ok(()) = caps::drop(None, caps::CapSet::Permitted, *cap) {
-
-        } else {
-            panic!("Unable to drop caps");
+        match caps::drop(None, caps::CapSet::Permitted, *cap) {
+            Ok(()) => {}
+            Err(e) => {
+                println!("Unable to drop caps {:?} {:?}", e, *cap);
+                return Err(e);
+            }
         }
     }
-
     Ok(())
 }
