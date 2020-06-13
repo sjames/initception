@@ -1,53 +1,21 @@
-extern crate caps;
-use crate::zygote::ZycoteClientContext;
-use caps::Capability;
+/// This is where all the common types go
+use crate::context::ServiceIndex;
 
-pub struct Config {
-    pub hostname: String,
-    pub true_init: bool,
+pub enum TaskMessage {
+    RequestLaunch(ServiceIndex),
+    ProcessLaunched(ServiceIndex),
+    ProcessRunning(ServiceIndex),
+    ProcessExited(ServiceIndex),
+    ConfigureNetworkLoopback,        // configure and enable the lo interface
+    UeventReady,                     // The Uevent task is ready to listen for events
+    DeviceChanged(DeviceChangeInfo), // a device has been added
+    UnitSuccess(ServiceIndex),       // A unit was successfully executed
 }
 
-impl Config {
-    pub fn new(args: &[String]) -> Result<Config, &'static str> {
-        if args.len() < 2 {
-            let hostname = "localhost".to_string();
-            Ok(Config {
-                hostname: hostname,
-                true_init: true,
-            })
-        } else {
-            let hostname = args[1].clone();
-            Ok(Config {
-                hostname: hostname,
-                true_init: false,
-            })
-        }
-    }
+pub enum DeviceChangeInfo {
+    Added(String),
+    Removed(String),
+    Changed(String),
 }
 
-pub struct Context {
-    pub config: Config, // The context will own the config
-    pub zygote_client_context: Option<ZycoteClientContext>,
-}
-
-impl Context {
-    pub fn new(config: Config) -> Result<Context, &'static str> {
-        Ok(Context {
-            config,
-            zygote_client_context: None,
-        })
-    }
-}
-
-pub fn drop_caps(caps_to_drop: &[Capability]) -> Result<(), caps::errors::Error> {
-    for cap in caps_to_drop.iter() {
-        match caps::drop(None, caps::CapSet::Permitted, *cap) {
-            Ok(()) => {}
-            Err(e) => {
-                println!("Unable to drop caps {:?} {:?}", e, *cap);
-                return Err(e);
-            }
-        }
-    }
-    Ok(())
-}
+pub type TxHandle = tokio::sync::mpsc::Sender<TaskMessage>;

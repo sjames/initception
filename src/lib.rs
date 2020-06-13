@@ -1,27 +1,28 @@
+// INITCEPTION client library
+
+extern crate failure;
+extern crate failure_derive;
+extern crate getopts;
+extern crate lazy_static;
 extern crate nix;
-use std::error::Error;
-extern crate ipc_channel;
+extern crate tokio;
+extern crate tokio_util;
+extern crate tracing;
+extern crate tracing_subscriber;
+extern crate unshare;
 
 pub mod common;
-mod device;
-mod property;
-mod zygote;
-
-use crate::common::*;
-use crate::device::{make_basic_devices, mount_basics};
-use crate::zygote::run_zygote;
-// ipc_channel for communicating with zygote
-
-pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
-    let mut context = Context::new(config).unwrap();
-    println!("Starting");
-
-    if context.config.true_init {
-        mount_basics()?;
-        make_basic_devices()?;
-    }
-
-    context.zygote_client_context = Some(run_zygote(&mut context).expect("Unable to run zygote"));
-
-    Ok(())
-}
+pub mod context;
+pub mod device;
+pub mod error;
+pub mod initception;
+pub mod initrc;
+pub mod mount;
+pub mod network;
+pub mod process;
+pub mod server;
+pub mod sysfs_walker;
+mod ueventd;
+pub mod userids;
+pub mod uventrc_parser;
+pub mod zygote;
