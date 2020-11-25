@@ -24,6 +24,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut opts = Options::new();
     opts.optopt("i", "", "Identity", "zygote|sysfswalk");
     opts.optopt("k", "", "key", "secret key");
+    opts.optopt("e","","executable","executable name");
 
     let matches = match opts.parse(&args[1..]) {
         Ok(m) => m,
@@ -32,15 +33,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let key = matches.opt_str("k");
     let identity = matches.opt_str("i");
 
-    if !identity.is_none() {
+    if identity.is_some() {
         match identity.unwrap().as_ref() {
             "zygote" => zygote::zygote_main(key),
             "sysfswalk" => sysfs_walker::sysfs_walker_main(key),
-            _ => {
+            others => {
+                initception::launcher::launch(others)
+                /*
                 error!("FATAL: Unknown identity for INITCEPTION");
                 Err(Box::new(std::io::Error::from(
                     std::io::ErrorKind::InvalidInput,
                 )))
+                */
             }
         }
     } else {
