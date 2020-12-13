@@ -10,14 +10,6 @@ use crate::process::launch_service;
 use tracing::{debug, info, warn};
 use unshare::ChildEvent;
 
-use crate::application::app_interface::{ApplicationInterface, ApplicationInterfaceAsyncRPCClient};
-use essrpc::transports::{
-    BincodeAsyncClientTransport,
-    ReadWrite,
-};
-
-use tokio::net::UnixStream;
-
 #[derive(Debug)]
 pub enum RuntimeEntity {
     Service(SpawnedService),

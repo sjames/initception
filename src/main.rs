@@ -1,3 +1,4 @@
+#![feature(custom_inner_attributes)]
 use getopts::Options;
 use std::env;
 use tracing::{error, info, Level};
@@ -6,6 +7,7 @@ use tracing_subscriber::FmtSubscriber;
 extern crate initception;
 use initception::sysfs_walker;
 use initception::zygote;
+
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     print!(".");

@@ -7,8 +7,8 @@ use std::env;
 
 fn main() {
 
-    let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
-
+    //let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
+    let out_dir = "src/application/src_gen";
     let protos = vec![
         "src/protocols/application_interface.proto",
     ];
