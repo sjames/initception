@@ -1,2 +1,4 @@
 /target
 **/*.rs.bk
+src/application/src_gen/application*.rs
+
