@@ -60,12 +60,21 @@ message SessionChangedResponse {
     ReturnStatus status = 1;
 }
 
-/*
-service ApplicationManager {
-    rpc heartbeat(None) returns None;
-    rpc started(None) returns None;
-    rpc stopped(None) returns None;
-    rpc paused(None) returns None;
-    rpc running(None) returns None;
+message HeartbeatRequest {}
+message StateChangedRequest {}
+
+message HeartbeatReply{}
+message StateChangedReply{
+    enum State {
+        Running = 0;
+        Stopped = 1;
+        Paused =  2;
+    }
+    State state = 1;
 }
-*/
+
+service ApplicationManager {
+    rpc heartbeat(HeartbeatRequest) returns (HeartbeatReply);
+    rpc statechanged(StateChangedRequest) returns (StateChangedReply);
+    
+}
