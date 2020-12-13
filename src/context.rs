@@ -10,7 +10,8 @@ use crate::process::launch_service;
 use tracing::{debug, info, warn};
 use unshare::ChildEvent;
 
-#[derive(Debug)]
+use ttrpc::r#async::Client;
+
 pub enum RuntimeEntity {
     Service(SpawnedService),
     Unit(SpawnedUnit),
@@ -44,7 +45,6 @@ pub enum UnitStatus {
     Unknown,
 }
 
-#[derive(Debug)]
 pub struct SpawnedService {
     pub service: Service,
     pub child: Option<unshare::Child>,
@@ -52,10 +52,9 @@ pub struct SpawnedService {
     pub state: RunningState,
     pub exit_status: Option<unshare::ExitStatus>,
     pub uuid: Option<String>, // The UUid for this instance of the application
-    //pub proxy : Option<ApplicationInterfaceAsyncRPCClient<_>>,
+    pub proxy : Option<ttrpc::r#async::Client>,
 }
 
-#[derive(Debug)]
 pub struct Context {
     children: Graph<RuntimeEntityReference, u32>,
 }
@@ -109,6 +108,7 @@ impl<'a> Context {
                     state: RunningState::Unknown,
                     exit_status: None,
                     uuid: None,
+                    proxy: None,
                 };
                 context
                     .children
@@ -181,11 +181,11 @@ impl<'a> Context {
 
             match petgraph::algo::toposort(&context.children, None) {
                 Ok(sorted) => {
-                    println!("{:#?}", &context.children);
+                    //println!("{:#?}", &context.children);
                     println!("Toposorted:{:?}", sorted);
                 }
                 Err(cycle) => {
-                    println!("{:#?}", &context.children);
+                    //println!("{:#?}", &context.children);
                     println!("Cycle:{:?}", cycle.node_id());
                     panic!("Dependency Cycle in initrc");
                 }

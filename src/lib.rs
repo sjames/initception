@@ -27,5 +27,4 @@ pub mod userids;
 pub mod uventrc_parser;
 pub mod zygote;
 pub mod launcher;
-mod property_zenoh;
 pub mod application;
