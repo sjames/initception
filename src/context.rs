@@ -10,6 +10,14 @@ use crate::process::launch_service;
 use tracing::{debug, info, warn};
 use unshare::ChildEvent;
 
+use crate::application::app_interface::{ApplicationInterface, ApplicationInterfaceAsyncRPCClient};
+use essrpc::transports::{
+    BincodeAsyncClientTransport,
+    ReadWrite,
+};
+
+use tokio::net::UnixStream;
+
 #[derive(Debug)]
 pub enum RuntimeEntity {
     Service(SpawnedService),
@@ -52,6 +60,7 @@ pub struct SpawnedService {
     pub state: RunningState,
     pub exit_status: Option<unshare::ExitStatus>,
     pub uuid: Option<String>, // The UUid for this instance of the application
+    //pub proxy : Option<ApplicationInterfaceAsyncRPCClient<_>>,
 }
 
 #[derive(Debug)]
@@ -61,6 +70,9 @@ pub struct Context {
 
 impl Context {
     pub fn get_ref(&self, node_index: &NodeIndex) -> RuntimeEntityReference {
+
+       // let client = ApplicationInterfaceAsyncRPCClient::new(BincodeAsyncClientTransport::new());
+
         self.children[*node_index].clone()
     }
 

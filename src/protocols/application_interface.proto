@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+package grpc;
+
+service ApplicationService {
+    rpc pause(PauseRequest) returns (PauseResponse);
+    rpc resume(ResumeRequest) returns (ResumeResponse);
+    rpc stop(StopRequest) returns (StopResponse);
+    rpc session_changed(SessionChangedRequest) returns (SessionChangedResponse);
+}
+
+enum ReturnStatus {
+    OK = 0;
+    AGAIN = 1;
+    ERROR = 2;
+ }
+
+message PauseRequest {
+    int32 timeout_ms = 1; // default timeout of 2000mS
+}
+
+message PauseResponse {
+    ReturnStatus status = 1;
+}
+
+enum ResumeReason {
+    DEFAULT = 0;  
+    SUSPEND = 1; // Resumed after suspend. 
+}
+
+message ResumeRequest {
+    int32 timeout_ms = 1; // default timeout of 2000mS
+    ResumeReason reason = 2;
+}
+
+message ResumeResponse {
+    ReturnStatus status = 1;
+}
+
+enum StopReason {
+    DEFAULT = 0;  
+    SHUTDOWN = 1; // Stopping due to normal shutdown
+    FAST_SHUTDOWN = 2; // Stopping due to abnormal shutdown
+}
+
+message StopRequest {
+    int32 timeout_ms = 1; 
+    StopReason reason = 2;
+}
+
+message StopResponse {
+    ReturnStatus status = 1;
+}
+
+message SessionChangedRequest {
+    string session_name = 1;
+}
+
+message SessionChangedResponse {
+    ReturnStatus status = 1;
+}
+
+/*
+service ApplicationManager {
+    rpc heartbeat(None) returns None;
+    rpc started(None) returns None;
+    rpc stopped(None) returns None;
+    rpc paused(None) returns None;
+    rpc running(None) returns None;
+}
+*/

@@ -167,6 +167,7 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                                         debug!("Connection received on {}", &uuid_abstract);
                                         //let (mut reader, mut writer) = stream.split();
                                         tokio::spawn(async move {
+
                                             server::manage_a_service(tx, stream, service).await
                                         });
                                     } else {
