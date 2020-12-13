@@ -14,9 +14,19 @@ use ttrpc::r#async::Server;
 use ttrpc;
 use async_trait::async_trait;
 
+use std::sync::Arc;
+
 struct ServiceManager 
 {
     spawnref: RuntimeEntityReference, // reference to the runtime entity for this server
+}
+
+impl ServiceManager {
+    fn new(spawnref: RuntimeEntityReference) -> Self {
+        ServiceManager {
+            spawnref,
+        }
+    }
 }
 
 #[async_trait]
@@ -37,20 +47,19 @@ impl application_interface_ttrpc::ApplicationManager for ServiceManager {
 /// the spanwnref gives you a shared reference to the launched service context
 pub async fn manage_a_service(
     tx: TxHandle,
-    stream: tokio::net::UnixStream,
+    socket_name : String,
     spawnref: RuntimeEntityReference,
 ) {
     info!("handle_receive!!!");
 
-   // let (s1, s2) = std::os::unix::net::UnixStream::pair().unwrap();
-    //let client = ApplicationInterfaceAsyncRPCClient::new(BincodeAsyncClientTransport::<_,_>>::new(stream));
+    let service = Box::new(ServiceManager::new(spawnref)) as Box<dyn application_interface_ttrpc::ApplicationManager + Send + Sync>;
+    let service = Arc::new(service);
+    let service = application_interface_ttrpc::create_application_manager(service);
+
+    let socket_name = String::from("unix://") + &socket_name;
     
-
-    let (reader, writer) = tokio::io::split(stream);
-
-    tokio::spawn(process_commands(spawnref, reader));
-
-    //tokio::io::AsyncBufRead::lines(reader).await
+    let mut server = Server::new().bind(&socket_name).unwrap().register_service(service);
+    server.start().await.unwrap();
 }
 
 async fn process_commands(

@@ -159,24 +159,8 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                         let tx = tx.clone();
                         tokio::spawn(async move {
                             debug!("Binding to address {:?}", uuid_abstract);
-                            if let Ok(mut listener) = UnixListener::bind(&uuid_abstract) {
-                                let mut incoming = listener.incoming();
+                            server::manage_a_service(tx, uuid_abstract, service).await;
 
-                                if let Some(stream) = incoming.next().await {
-                                    if let Ok(stream) = stream {
-                                        debug!("Connection received on {}", &uuid_abstract);
-                                        //let (mut reader, mut writer) = stream.split();
-                                        tokio::spawn(async move {
-
-                                            server::manage_a_service(tx, stream, service).await
-                                        });
-                                    } else {
-                                        debug!("Connection failed on {}", &uuid_abstract)
-                                    }
-                                }
-                            } else {
-                                error!("Unable to bind to address {}", &uuid_abstract);
-                            }
                         });
                     }
                     if let Err(err) = context.launch_service(id, uuid) {
