@@ -146,7 +146,8 @@ impl TryFrom<&[u8]> for UEvent {
     }
 }
 
-pub async fn uevent_main(mut tx: tokio::sync::mpsc::Sender<TaskMessage>) {
+/// This function calls blocking functions. 
+pub async fn uevent_main(tx: std::sync::mpsc::Sender<TaskMessage>) {
     let kernel_unicast: SocketAddr = SocketAddr::new(0, 0xFFFF_FFFF);
     if let Some(uevent_cfg) = uventrc_parser::load_config() {
         let mut socket = Socket::new(Protocol::KObjectUevent).unwrap();
@@ -156,7 +157,7 @@ pub async fn uevent_main(mut tx: tokio::sync::mpsc::Sender<TaskMessage>) {
         } else {
             let mut buf = vec![0; 1024 * 1];
 
-            if let Err(_) = tx.send(TaskMessage::UeventReady).await {
+            if let Err(_) = tx.send(TaskMessage::UeventReady) {
                 panic!("Receiver dropped");
             }
             loop {
@@ -164,7 +165,7 @@ pub async fn uevent_main(mut tx: tokio::sync::mpsc::Sender<TaskMessage>) {
                     if let Ok(uevent) = UEvent::try_from(&buf[0..*n]) {
                         //println!("{}", uevent);
                         if let Ok(changeinfo) = handle_uevent(uevent, &uevent_cfg) {
-                            if let Err(_) = tx.send(TaskMessage::DeviceChanged(changeinfo)).await {
+                            if let Err(_) = tx.send(TaskMessage::DeviceChanged(changeinfo)) {
                                 panic!("Receiver dropped");
                             }
                         }

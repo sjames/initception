@@ -61,10 +61,9 @@ message SessionChangedResponse {
 }
 
 message HeartbeatRequest {}
-message StateChangedRequest {}
-
 message HeartbeatReply{}
-message StateChangedReply{
+
+message StateChangedRequest{
     enum State {
         Running = 0;
         Stopped = 1;
@@ -72,6 +71,7 @@ message StateChangedReply{
     }
     State state = 1;
 }
+message StateChangedReply {}
 
 service ApplicationManager {
     rpc heartbeat(HeartbeatRequest) returns (HeartbeatReply);

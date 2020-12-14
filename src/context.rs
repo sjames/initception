@@ -11,6 +11,9 @@ use tracing::{debug, info, warn};
 use unshare::ChildEvent;
 
 use ttrpc::r#async::Client;
+use crate::application::src_gen::application_interface_ttrpc::ApplicationServiceClient;
+
+use crate::application::config::ApplicationConfig;
 
 pub enum RuntimeEntity {
     Service(SpawnedService),
@@ -52,7 +55,9 @@ pub struct SpawnedService {
     pub state: RunningState,
     pub exit_status: Option<unshare::ExitStatus>,
     pub uuid: Option<String>, // The UUid for this instance of the application
-    pub proxy : Option<ttrpc::r#async::Client>,
+    pub proxy : Option<ApplicationServiceClient>,
+    // This is the socket to communicate with the application server
+    pub client_fd : Option<i32>,
 }
 
 pub struct Context {
@@ -93,6 +98,46 @@ pub type RuntimeEntityReference = std::sync::Arc<std::sync::RwLock<RuntimeEntity
 pub type ContextReference = std::sync::Arc<std::sync::RwLock<Context>>;
 
 impl<'a> Context {
+
+    // Create empty context
+    pub fn new() -> Context {
+        Context {
+            children : Graph::new(),
+        }
+    }
+
+    // Add a service from an ApplicationConfiguration        
+    pub fn add_service(&mut self, config : &dyn ApplicationConfig) {
+        let service : Service = config.into();
+        let spawn = SpawnedService {
+            service : service,
+            child : None,
+            start_count : 0,
+            state : RunningState::Unknown,
+            exit_status : None,
+            uuid : None,
+            proxy : None,
+            client_fd : None,
+        };
+
+        self.children.add_node(std::sync::Arc::new(std::sync::RwLock::new(
+            RuntimeEntity::Service(spawn),
+        )));
+
+    }
+
+    pub fn add_unit(&mut self, unit : Unit) {
+        let spawn = SpawnedUnit {
+            unit: unit,
+            status: UnitStatus::Unknown,
+        };
+        self.children
+        .add_node(std::sync::Arc::new(std::sync::RwLock::new(
+            RuntimeEntity::Unit(spawn),
+        )));
+    }
+    
+
     /// convert the Config structure to a context structure. The context structure includes
     /// a graph of the services.
     pub fn create_context() -> Option<Context> {
@@ -109,6 +154,7 @@ impl<'a> Context {
                     exit_status: None,
                     uuid: None,
                     proxy: None,
+                    client_fd : None,
                 };
                 context
                     .children
@@ -196,6 +242,67 @@ impl<'a> Context {
             None
         }
     }
+
+    pub fn fixup_dependencies(&mut self) {
+        // now fix up the dependencies
+        let mut edges: Vec<(NodeIndex, NodeIndex)> = Vec::new();
+        for node_index in self.children.node_indices() {
+            let runtime_entity: &RuntimeEntity = &self.children[node_index].read().unwrap();
+            match runtime_entity {
+                RuntimeEntity::Service(service) => {
+                    if let Some(deps) = &service.service.depends {
+                        for dep in deps {
+                            let it_depends: Vec<NodeIndex> = self
+                                .children
+                                .node_indices()
+                                .filter(|&n| {
+                                    n != node_index && dep == &self.get_name(n).unwrap()
+                                })
+                                .collect();
+                            for d in it_depends {
+                                //println!("{} depends on {:?}",&context.children[node_index].service.name,d);
+                                edges.push((node_index, d))
+                            }
+                        }
+                    }
+                }
+                RuntimeEntity::Unit(unit) => {
+                    if let Some(deps) = &unit.unit.depends {
+                        for dep in deps {
+                            let it_depends: Vec<NodeIndex> = self
+                                .children
+                                .node_indices()
+                                .filter(|&n| {
+                                    n != node_index && dep == &self.get_name(n).unwrap()
+                                })
+                                .collect();
+                            for d in it_depends {
+                                //println!("{} depends on {:?}",&context.children[node_index].service.name,d);
+                                edges.push((node_index, d))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        for edge in edges {
+            self.children.add_edge(edge.0, edge.1, 1);
+        }
+
+        match petgraph::algo::toposort(&self.children, None) {
+            Ok(sorted) => {
+                //println!("{:#?}", &context.children);
+                println!("Toposorted:{:?}", sorted);
+            }
+            Err(cycle) => {
+                //println!("{:#?}", &context.children);
+                println!("Cycle:{:?}", cycle.node_id());
+                panic!("Dependency Cycle in initrc");
+            }
+        }
+    }
+
 
     /// Get the index of services that are started initially. These are the services that
     /// do not depend on any other services or any other triggers

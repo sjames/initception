@@ -5,6 +5,8 @@ pub enum TaskMessage {
     RequestLaunch(ServiceIndex),
     ProcessLaunched(ServiceIndex),
     ProcessRunning(ServiceIndex),
+    ProcessPaused(ServiceIndex),  // process has confirmed the pause
+    ProcessStopped(ServiceIndex), // process has confirmed the stop
     ProcessExited(ServiceIndex),
     ConfigureNetworkLoopback,        // configure and enable the lo interface
     UeventReady,                     // The Uevent task is ready to listen for events
@@ -19,3 +21,4 @@ pub enum DeviceChangeInfo {
 }
 
 pub type TxHandle = tokio::sync::mpsc::Sender<TaskMessage>;
+pub type SyncTxHandle = std::sync::mpsc::Sender<TaskMessage>;

@@ -14,6 +14,7 @@ use tracing::{debug, error, info};
 //use uuid;
 use rand::Rng;
 use rand_core::SeedableRng;
+use tokio::task;
 
 // For rtnetlink
 //use tokio::stream::TryStreamExt;
@@ -31,14 +32,24 @@ use crate::sysfs_walker;
 use crate::ueventd;
 use crate::zygote;
 
-pub fn initception_main() -> Result<(), Box<dyn Error>> {
-    if let Err(e) = device::mount_basics() {
-        error!("Unable to mount basics");
-        return Err(e);
-    } else if let Err(e) = device::make_basic_devices() {
-        error!("Unable to make basic devices");
-        return Err(e);
-    } else if let Err(e) = zygote::launch_zygote() {
+
+pub fn initception_main(pid1: bool ) -> Result<(), Box<dyn Error>> {
+
+    if pid1 {
+        if let Err(e) = device::mount_basics() {
+            error!("Unable to mount basics");
+            return Err(e);
+        }    
+    }
+
+    if pid1 {
+        if let Err(e) = device::make_basic_devices() {
+            error!("Unable to make basic devices");
+            return Err(e);
+        }
+    }
+
+    if let Err(e) = zygote::launch_zygote() {
         error!("Error launching zygote");
         return Err(e);
     }
@@ -68,18 +79,18 @@ fn create_uuid(rng: &mut rand::rngs::SmallRng) -> String {
 
 #[tokio::main]
 async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error> {
-    let (tx_orig, mut rx) = mpsc::channel::<TaskMessage>(100);
+    let (tx_orig, mut rx) = std::sync::mpsc::channel::<TaskMessage>();
 
     {
         let initial_services = context.read().unwrap().get_initial_services();
         let mut tx = tx_orig.clone();
         info!("asyn main started");
-        if let Err(_) = tx.send(TaskMessage::ConfigureNetworkLoopback).await {
+        if let Err(_) = tx.send(TaskMessage::ConfigureNetworkLoopback) {
             panic!("Receiver dropped when configuring network");
         }
 
         for service_idx in initial_services {
-            if let Err(_) = tx.send(TaskMessage::RequestLaunch(service_idx)).await {
+            if let Err(_) = tx.send(TaskMessage::RequestLaunch(service_idx)) {
                 panic!("Receiver dropped");
             }
         }
@@ -87,7 +98,8 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
 
     // Spawn the task for uevent processing
     let tx = tx_orig.clone();
-    tokio::spawn(ueventd::uevent_main(tx));
+    // uevent calls blocking functions.
+    tokio::task::spawn_blocking( || {ueventd::uevent_main(tx)});
 
     let cloned_context = context.clone();
     // Needed for the signal function below
@@ -98,8 +110,8 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
     ])));
 
     // This is the main dispatch function for initception
-    tokio::spawn(async move {
-        while let Some(msg) = rx.recv().await {
+    tokio::task::spawn_blocking( move || {
+        while let Ok(msg) = rx.recv() {
             let cloned_context = context.clone();
             let mount_context = context.clone();
             let mut tx = tx_orig.clone();
@@ -116,7 +128,7 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                     for dep in deps {
                         debug!("Launching dep {:?}", dep);
 
-                        if let Err(_) = tx.send(TaskMessage::RequestLaunch(dep)).await {
+                        if let Err(_) = tx.send(TaskMessage::RequestLaunch(dep)) {
                             panic!("Receiver dropped");
                         }
                     }
@@ -129,7 +141,7 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                         .get_immediate_dependant_services(id);
                     for dep in deps {
                         debug!("Launching dep {:?}", dep);
-                        if let Err(_) = tx.send(TaskMessage::RequestLaunch(dep)).await {
+                        if let Err(_) = tx.send(TaskMessage::RequestLaunch(dep)) {
                             panic!("Receiver dropped");
                         }
                     }
@@ -139,11 +151,18 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                     if let Some(time_ms) = cloned_context.read().unwrap().check_restart(id) {
                         tokio::spawn(async move {
                             delay_for(Duration::from_millis(time_ms as u64)).await;
-                            if let Err(_) = tx.send(TaskMessage::RequestLaunch(id)).await {
+                            if let Err(_) = tx.send(TaskMessage::RequestLaunch(id)) {
                                 panic!("Receiver dropped");
                             }
                         });
                     }
+                }),
+                TaskMessage::ProcessPaused(id) => tokio::spawn(async move {
+                    debug!("Pid {:?} has confirmed pause", id);
+                    
+                }),
+                TaskMessage::ProcessStopped(id) => tokio::spawn(async move {
+                    debug!("Pid {:?} has confirmed stop", id);
                 }),
                 TaskMessage::RequestLaunch(id) => tokio::spawn(async move {
                     let context = cloned_context.read().unwrap();
@@ -159,7 +178,7 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                         let tx = tx.clone();
                         tokio::spawn(async move {
                             debug!("Binding to address {:?}", uuid_abstract);
-                            server::manage_a_service(tx, uuid_abstract, service).await;
+                            server::manage_a_service(tx, uuid_abstract, service,id).await;
 
                         });
                     }
@@ -174,7 +193,7 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                             } else {
                                 TaskMessage::ProcessRunning(id)
                             };
-                            if let Err(_) = tx.send(msg).await {
+                            if let Err(_) = tx.send(msg) {
                                 panic!("Receiver dropped");
                             }
                         });
@@ -191,7 +210,7 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                         DeviceChangeInfo::Added(dev) => {
                             info!("ADD:{}", dev);
                             if let Ok(index) = Context::do_unit(cloned_context, dev).await {
-                                if let Err(_) = tx.send(TaskMessage::UnitSuccess(index)).await {
+                                if let Err(_) = tx.send(TaskMessage::UnitSuccess(index)) {
                                     panic!("Receiver dropped");
                                 }
                             }
@@ -209,7 +228,7 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                     for dep in deps {
                         debug!("Launching dep {:?}", dep);
 
-                        if let Err(_) = tx.send(TaskMessage::RequestLaunch(dep)).await {
+                        if let Err(_) = tx.send(TaskMessage::RequestLaunch(dep)) {
                             panic!("Receiver dropped");
                         }
                     }
@@ -229,7 +248,7 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
             let (killed, _stopped, _continued) =
                 cloned_context.write().unwrap().process_child_events();
             for pid in killed {
-                if let Err(_) = tx.send(TaskMessage::ProcessExited(pid)).await {
+                if let Err(_) = tx.send(TaskMessage::ProcessExited(pid)) {
                     panic!("Receiver dropped.3");
                 }
             }

@@ -27,6 +27,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     opts.optopt("i", "", "Identity", "zygote|sysfswalk");
     opts.optopt("k", "", "key", "secret key");
     opts.optopt("e","","executable","executable name");
+    opts.optopt("n","","not pid 1","Not launched as PID1 process");
 
     let matches = match opts.parse(&args[1..]) {
         Ok(m) => m,
@@ -34,6 +35,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let key = matches.opt_str("k");
     let identity = matches.opt_str("i");
+    let notpid1 = matches.opt_str("n");
 
     if identity.is_some() {
         match identity.unwrap().as_ref() {
@@ -51,6 +53,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     } else {
         info!("I N I T C E P T I O N");
-        initception::initception::initception_main()
+        if notpid1.is_some() {
+            initception::initception::initception_main(false)    
+        } else {
+            // launch as PID1
+            initception::initception::initception_main(true)
+        }
     }
 }

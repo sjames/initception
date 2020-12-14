@@ -6,7 +6,10 @@ Use unshare to launch processes or containers.
 use crate::context::{RunningState, RuntimeEntity, RuntimeEntityReference};
 use crate::initrc::{Cap, Ns, Type};
 
-use unshare::{Capability, Namespace};
+use unshare::{Capability, Fd, Namespace};
+
+use std::os::unix::io::IntoRawFd;
+use std::os::unix::net::UnixStream;
 
 use tracing::debug;
 
@@ -111,6 +114,21 @@ pub fn launch_service(spawned_ref: RuntimeEntityReference, uuid: String) -> Resu
         if service.is_notify_type() {
             cmd.env("NOTIFY_SOCKET", &uuid);
         }
+
+        let (mysock, childsocket) = match UnixStream::pair() {
+            Ok((sock1, sock2)) => (sock1, sock2),
+            Err(e) => {
+                panic!("Couldn't create a pair of sockets: {:?}", e);
+            }
+        };
+        
+        // raw_fd goes to the child process
+        let raw_fd = childsocket.into_raw_fd();
+        spawn.client_fd = Some(mysock.into_raw_fd());
+    
+        cmd.env("NOTIFY_APP_FD", format!("{}", raw_fd));
+        cmd.file_descriptor(raw_fd, Fd::inherit());
+
         debug!("Before spawn");
         let child = match cmd.spawn() {
             Ok(child) => child,

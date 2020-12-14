@@ -7,7 +7,9 @@ extern crate toml;
 
 use serde::Deserialize;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{PathBuf,Path};
+
+use crate::application::config::{ApplicationConfig, Application};
 
 #[derive(Deserialize, Debug)]
 pub struct Config {
@@ -15,7 +17,7 @@ pub struct Config {
     pub unit: Option<Vec<Option<Unit>>>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[allow(non_camel_case_types)]
 pub enum Cap {
     CAP_CHOWN,
@@ -58,7 +60,7 @@ pub enum Cap {
     CAP_AUDIT_READ,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub enum Ns {
     Pid,
     Net,
@@ -71,6 +73,51 @@ pub enum Ns {
 #[derive(Deserialize, Debug)]
 pub enum Type {
     Notify,
+}
+pub trait ServiceTrait<'a> {
+    fn get_name(&self) -> &str;
+    fn get_path(&self) -> &Path;
+    fn get_depends(&self) -> Option<&[&str]>;
+    fn get_after(&self) -> Option<&str>;
+    fn get_start_params(&self) -> Option<&[&str]>;
+    fn get_restart_params(&self) -> Option<&[&str]>;
+    fn get_restart(&self) -> Option<&Restart>;
+    fn get_class(&self) -> Option<&str>;
+    fn get_io_prio(&self) -> Option<&str>;
+    fn get_uid(&self) -> u32;
+    fn get_gid(&self) -> u32;
+    fn get_groups(&self) -> Option<&[u32]>;
+    fn get_namespaces(&self) -> Option<&[Ns]>;
+    fn get_workdir(&self) -> Option<&str>;
+    fn get_capabilities(&self)-> Option<&[Cap]>;
+    fn get_env(&self) -> Option<&[[&str;2]]>;
+    fn get_type(&self) -> Option<Type>;
+}
+
+pub enum ExecutableType {
+    ExecPath(String),
+    ExecApplication(Box<dyn Application>)
+}
+
+impl ExecutableType {
+    pub fn is_path(&self) -> bool {
+        match self {
+            ExecutableType::ExecPath(_) => true,
+            ExecutableType::ExecApplication(_) => false,
+        }
+    }
+    pub fn get_path(&self) -> Option<&str> {
+        match self {
+            ExecutableType::ExecPath(path) => Some(path.as_str()),
+            ExecutableType::ExecApplication(_) => None,
+        }
+    }
+    pub fn get_application(&self) -> Option<&Box<dyn Application>> {
+        match self {
+            ExecutableType::ExecPath(_) => None,
+            ExecutableType::ExecApplication(app) => Some(app),
+        }
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -150,3 +197,35 @@ pub fn load_config() -> Option<Config> {
         None
     }
 }
+
+// Todo: The service struct stores copies. Check if this can be improved.
+impl From<&dyn ApplicationConfig> for Service {
+    fn from(cfg:&dyn ApplicationConfig) -> Self {
+        Service {
+            name : cfg.name().into(),
+            path : PathBuf::new(),
+            depends : Some(cfg.depends().iter().map(|d|String::from(*d)).collect()),
+            after : None,
+            start_params : Some(cfg.start_params().iter().map(|d|String::from(*d)).collect()),
+            restart_params : Some(cfg.restart_params().iter().map(|d|String::from(*d)).collect()),
+            restart : None,
+            class : cfg.class().map(|c| String::from(c)),
+            io_prio : cfg.io_prio().map(|c| String::from(c)),
+            uid : Some(cfg.uid()),
+            gid : Some(cfg.uid()),
+            groups : Some(cfg.groups().iter().map(|g|*g).collect()),
+            namespaces : Some(cfg.namespaces().iter().map(|n|n.clone()).collect()),
+            workdir : cfg.workdir().map(|w| String::from(w)),
+            capabilities : Some(cfg.capabilities().iter().map(|c|c.clone()).collect()),
+            env : {
+                let mut env = Vec::<[String;2]>::new();
+                for e in cfg.environment() {
+                    env.push([String::from(e[0]),String::from(e[1])]);
+                }
+                Some(env)
+            },
+            r#type : Some(Type::Notify),
+        }
+    }
+}
+
