@@ -16,6 +16,7 @@ pub mod context;
 pub mod device;
 pub mod error;
 pub mod initception;
+pub mod init_main;
 pub mod initrc;
 pub mod mount;
 pub mod network;
