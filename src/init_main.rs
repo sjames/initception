@@ -12,7 +12,7 @@ use tracing::{error, info, Level, debug};
 /// main library entry point
 
 
-pub fn init_main<F>( configs : &[&dyn ApplicationConfig]) -> Result<(), Box<dyn std::error::Error>> 
+pub fn init_main( configs : &[&dyn ApplicationConfig]) -> Result<(), Box<dyn std::error::Error>> 
     //where F: FnOnce(&str) -> Result<(), Box<dyn std::error::Error>>
 {
     let args: Vec<String> = env::args().collect();
@@ -20,7 +20,7 @@ pub fn init_main<F>( configs : &[&dyn ApplicationConfig]) -> Result<(), Box<dyn 
     opts.optopt("i", "", "Identity", "zygote|sysfswalk");
     opts.optopt("k", "", "key", "secret key");
     opts.optopt("e","","executable","executable name");
-    opts.optopt("n","","not pid 1","Not launched as PID1 process");
+    opts.optflag("n","","not pid 1");
 
     let matches = match opts.parse(&args[1..]) {
         Ok(m) => m,
@@ -28,7 +28,7 @@ pub fn init_main<F>( configs : &[&dyn ApplicationConfig]) -> Result<(), Box<dyn 
     };
     let key = matches.opt_str("k");
     let identity = matches.opt_str("i");
-    let notpid1 = matches.opt_str("n");
+    let notpid1 = matches.opt_present("n");
 
     if identity.is_some() {
         match identity.unwrap().as_ref() {
@@ -45,12 +45,7 @@ pub fn init_main<F>( configs : &[&dyn ApplicationConfig]) -> Result<(), Box<dyn 
         }
     } else {
         info!("I N I T C E P T I O N");
-        if notpid1.is_some() {
-            initception::initception_main(false)    
-        } else {
-            // launch as PID1
-            initception::initception_main(true)
-        }
+        initception::initception_main_static(configs,!notpid1)    
     }
 }
 

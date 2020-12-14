@@ -13,6 +13,15 @@ use std::os::unix::net::UnixStream;
 
 use tracing::debug;
 
+
+fn create_self_command(name:&str) -> unshare::Command {
+    let path = std::fs::read_link("/proc/self/exe").expect("Unable to read /proc/self/exe");
+
+    let mut cmd = unshare::Command::new(&path);
+    cmd.arg("-i").arg(name);
+    cmd
+}
+
 /// launch a process, returining the Child structure for the newly
 /// launched child process
 pub fn launch_service(spawned_ref: RuntimeEntityReference, uuid: String) -> Result<(), nix::Error> {
@@ -20,7 +29,11 @@ pub fn launch_service(spawned_ref: RuntimeEntityReference, uuid: String) -> Resu
 
     if let &mut RuntimeEntity::Service(spawn) = &mut entity {
         let service = &mut spawn.service;
-        let mut cmd = unshare::Command::new(&service.path);
+        let mut cmd = if service.is_static { 
+            create_self_command(&service.name)
+        } else {
+            unshare::Command::new(&service.path)
+        };
         let mut namespaces = Vec::<Namespace>::new();
         let mut keepcaps = Vec::<Capability>::new();
 
