@@ -74,6 +74,7 @@ pub enum Ns {
 pub enum Type {
     Notify,
 }
+
 pub trait ServiceTrait<'a> {
     fn get_name(&self) -> &str;
     fn get_path(&self) -> &Path;
@@ -92,32 +93,6 @@ pub trait ServiceTrait<'a> {
     fn get_capabilities(&self)-> Option<&[Cap]>;
     fn get_env(&self) -> Option<&[[&str;2]]>;
     fn get_type(&self) -> Option<Type>;
-}
-
-pub enum ExecutableType {
-    ExecPath(String),
-    ExecApplication(Box<dyn Application>)
-}
-
-impl ExecutableType {
-    pub fn is_path(&self) -> bool {
-        match self {
-            ExecutableType::ExecPath(_) => true,
-            ExecutableType::ExecApplication(_) => false,
-        }
-    }
-    pub fn get_path(&self) -> Option<&str> {
-        match self {
-            ExecutableType::ExecPath(path) => Some(path.as_str()),
-            ExecutableType::ExecApplication(_) => None,
-        }
-    }
-    pub fn get_application(&self) -> Option<&Box<dyn Application>> {
-        match self {
-            ExecutableType::ExecPath(_) => None,
-            ExecutableType::ExecApplication(app) => Some(app),
-        }
-    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -139,6 +114,9 @@ pub struct Service {
     pub capabilities: Option<Vec<Cap>>,
     pub env: Option<Vec<[String; 2]>>,
     pub r#type: Option<Type>,
+    // set to true if this configuration is static. The executable path is not used
+    #[serde(skip_serializing)]
+    pub is_static : bool,
 }
 
 impl Service {
@@ -225,6 +203,8 @@ impl From<&dyn ApplicationConfig> for Service {
                 Some(env)
             },
             r#type : Some(Type::Notify),
+            // if created from ApplicationConfiguration, this is always static
+            is_static : true,
         }
     }
 }

@@ -31,6 +31,7 @@ use crate::server;
 use crate::sysfs_walker;
 use crate::ueventd;
 use crate::zygote;
+use crate::application::config::{ApplicationConfig,Application};
 
 
 pub fn initception_main(pid1: bool ) -> Result<(), Box<dyn Error>> {
@@ -66,6 +67,44 @@ pub fn initception_main(pid1: bool ) -> Result<(), Box<dyn Error>> {
     }
 }
 
+pub fn initception_main_static(configs : &[&dyn ApplicationConfig], is_pid1: bool) -> Result<(),Box<dyn Error>> {
+    if is_pid1 {
+        if let Err(e) = device::mount_basics() {
+            error!("Unable to mount basics");
+            return Err(e);
+        }    
+    }
+
+    if is_pid1 {
+        if let Err(e) = device::make_basic_devices() {
+            error!("Unable to make basic devices");
+            return Err(e);
+        }
+    }
+
+    let mut context = Context::new();
+    for app in configs {
+        context.add_service(*app);
+    }
+
+    /*
+    Todo: Add units here
+    context.add_unit(unit);
+    */
+    
+    context.fixup_dependencies();
+    let context = Arc::new(RwLock::new(context));
+
+    match init_async_main(context) {
+        Err(e) => Err(Box::new(e)),
+        Ok(()) => {
+            error!("init terminating");
+            Ok(())
+        }
+    }
+
+}
+
 // We don't need a crypto backed uuid here
 fn create_uuid(rng: &mut rand::rngs::SmallRng) -> String {
     let mut uuid = String::new();
@@ -79,11 +118,11 @@ fn create_uuid(rng: &mut rand::rngs::SmallRng) -> String {
 
 #[tokio::main]
 async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error> {
-    let (tx_orig, mut rx) = std::sync::mpsc::channel::<TaskMessage>();
+    let (tx_orig, rx) = std::sync::mpsc::channel::<TaskMessage>();
 
     {
         let initial_services = context.read().unwrap().get_initial_services();
-        let mut tx = tx_orig.clone();
+        let tx = tx_orig.clone();
         info!("asyn main started");
         if let Err(_) = tx.send(TaskMessage::ConfigureNetworkLoopback) {
             panic!("Receiver dropped when configuring network");

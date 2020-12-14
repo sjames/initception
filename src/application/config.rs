@@ -3,7 +3,9 @@
 
 use crate::initrc::Ns;
 use crate::initrc::Cap;
-/// Application configurations have to be static
+/// Trait for Application configuration. Applications
+/// have to be statically configured and hence the liberal
+/// use of static
 pub trait ApplicationConfig{
     fn name(&self) -> &'static str;
     fn depends(&self) -> &'static [&'static str];
@@ -30,7 +32,6 @@ pub struct CreateParams {
 pub struct RunParams {
 
 }
-
 
 pub trait Application {
     /// This is the main loop of the application. This 
