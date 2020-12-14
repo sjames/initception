@@ -36,5 +36,5 @@ pub struct RunParams {
 pub trait Application {
     /// This is the main loop of the application. This 
     /// function is not expected to return
-    fn run(&mut self,params:&RunParams) -> i32;
+    fn run(&mut self,params:&RunParams) -> Result<(), Box<dyn std::error::Error>>;
 }

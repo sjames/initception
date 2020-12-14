@@ -15,6 +15,7 @@ use tracing::{error, info, Level, debug};
 pub fn init_main( configs : &[&dyn ApplicationConfig]) -> Result<(), Box<dyn std::error::Error>> 
     //where F: FnOnce(&str) -> Result<(), Box<dyn std::error::Error>>
 {
+    println!("Init main entered");
     let args: Vec<String> = env::args().collect();
     let mut opts = Options::new();
     opts.optopt("i", "", "Identity", "zygote|sysfswalk");
@@ -52,6 +53,9 @@ pub fn init_main( configs : &[&dyn ApplicationConfig]) -> Result<(), Box<dyn std
 // look for the application in the application configuration array and launch it
 fn launch_app(configs : &[&dyn ApplicationConfig], name:&str) -> Result<(), Box<dyn std::error::Error>> {
     if let Some(cfg) = configs.into_iter().find(|c| {
+
+        println!("Searching:{}",c.name());
+
         c.name() == name
     }) {
         let params = CreateParams {
@@ -61,8 +65,9 @@ fn launch_app(configs : &[&dyn ApplicationConfig], name:&str) -> Result<(), Box<
             // No run params for now
         };
         let mut app = cfg.create(&params).unwrap();
-        app.run(&run_params);
+        app.run(&run_params)
+    } else {
+        error!("Did not find application {}", name);
+        Err(Box::new(std::io::Error::new(std::io::ErrorKind::NotFound,name)))
     }
-    error!("Did not find application {}", name);
-    Err(Box::new(std::io::Error::new(std::io::ErrorKind::NotFound,name)))
 }
