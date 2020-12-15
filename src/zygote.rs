@@ -17,7 +17,7 @@ extern crate caps;
 
 use std::error::Error;
 
-pub fn zygote_main(key: Option<String>) -> Result<(), Box<Error>> {
+pub fn zygote_main(_key: Option<String>) -> Result<(), Box<dyn Error>> {
     println!("Zygote started");
     Ok(())
 }

@@ -13,7 +13,7 @@
 
 /// Parse the ueventd config file at /etc/ueventd.rc
 extern crate toml;
-use nix::sys::stat::{Mode, SFlag};
+
 use serde::Deserialize;
 use std::fs;
 use tracing::{debug, error, info, Level};

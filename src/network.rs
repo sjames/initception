@@ -15,8 +15,8 @@
 ///
 use crate::context::{ContextReference, RuntimeEntity, ServiceIndex, UnitStatus};
 use crate::initrc::{Unit, UnitType};
-use ipnetwork::{IpNetwork, Ipv4Network};
-use rtnetlink::{new_connection, Error as RtNetlinkError, Handle};
+use ipnetwork::{IpNetwork};
+use rtnetlink::{new_connection};
 use tokio::io::{self, AsyncBufReadExt, ReadHalf};
 use tracing::{debug, error, info, warn};
 
@@ -92,7 +92,7 @@ pub fn configure_network_interface(ip: IpNetwork, interface: String) -> Result<(
     debug!("Configure network interface {}", &interface);
     let (connection, handle, _) = new_connection().unwrap();
     tokio::spawn(connection);
-    let task = tokio::spawn(async move {
+    let _task = tokio::spawn(async move {
         let mut links = handle
             .link()
             .get()

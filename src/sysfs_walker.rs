@@ -17,7 +17,7 @@ use std::error::Error;
 use std::io::Write;
 use walkdir::WalkDir;
 
-pub fn sysfs_walker_main(_key: Option<String>) -> Result<(), Box<Error>> {
+pub fn sysfs_walker_main(_key: Option<String>) -> Result<(), Box<dyn Error>> {
     println!("Sysfs walker started");
     let uevent = std::ffi::OsStr::new("uevent");
     for entry in WalkDir::new("/sys/devices")

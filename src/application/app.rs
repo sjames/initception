@@ -99,7 +99,7 @@ impl ApplicationClient {
         timestamp.set_nanos(duration.subsec_nanos());
 
         req.set_timestamp(timestamp);
-        let reply = self.manager_proxy.heartbeat(&req, 0).await;
+        let _reply = self.manager_proxy.heartbeat(&req, 0).await;
     }
 }
 

@@ -19,7 +19,7 @@ use crate::initception;
 use crate::sysfs_walker;
 use crate::zygote;
 
-use tracing::{debug, error, info, Level};
+use tracing::{debug, error, info};
 
 /// main library entry point
 

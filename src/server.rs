@@ -13,18 +13,18 @@
 
 use std::time::Duration;
 
-use tokio::io::{self, AsyncBufReadExt, ReadHalf};
+
 use tokio::stream::StreamExt;
 use tokio::sync::oneshot::channel as oneshot_channel;
 use tokio::sync::oneshot::Sender;
 use tokio::time::timeout;
-use tokio_util::codec::{FramedRead, LinesCodec};
-use tracing::{debug, error, info, Level};
 
-use crate::common::TxHandle;
+use tracing::{debug, error, info};
+
+
 use crate::common::*;
 use crate::context::{RuntimeEntityReference, ServiceIndex};
-use crate::error::InitceptionServerError;
+
 
 use crate::application::src_gen::application_interface;
 use crate::application::src_gen::application_interface_ttrpc;
@@ -92,9 +92,9 @@ impl application_interface_ttrpc::ApplicationManager for ServiceManager {
     async fn heartbeat(
         &self,
         _ctx: &::ttrpc::r#async::TtrpcContext,
-        req: application_interface::HeartbeatRequest,
+        _req: application_interface::HeartbeatRequest,
     ) -> ::ttrpc::Result<application_interface::HeartbeatReply> {
-        let mut inner = self.inner.write().unwrap();
+        let inner = self.inner.write().unwrap();
         info!("Heartbeat received from : {:?}", inner.service_index);
 
         let mut service = inner.spawnref.write().unwrap();
@@ -179,7 +179,7 @@ pub async fn manage_a_service(
 
     //let mut server = Server::new().bind(&socket_name).unwrap().register_service(service);
 
-    let (mut server, mut socket) = if let Ok(context) = client_spawnref.write().as_deref_mut() {
+    let (mut server, socket) = if let Ok(context) = client_spawnref.write().as_deref_mut() {
         match context {
             RuntimeEntity::Service(s) => {
                 if let Some(fd) = s.server_fd.take() {

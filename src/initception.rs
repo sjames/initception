@@ -18,29 +18,29 @@ use std;
 use std::error::Error;
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
-use tokio::net::UnixListener;
+
 use tokio::signal::unix::{signal, SignalKind};
 use tokio::stream::StreamExt;
-use tokio::sync::mpsc;
+
 use tokio::time::delay_for;
 use tracing::{debug, error, info};
 //use uuid;
 use rand::Rng;
 use rand_core::SeedableRng;
-use tokio::task;
+
 
 // For rtnetlink
 //use tokio::stream::TryStreamExt;
-use ipnetwork::{IpNetwork, Ipv4Network};
-use rtnetlink::{new_connection, Error as RtNetlinkError, Handle};
 
-use crate::application::config::{Application, ApplicationConfig};
+
+
+use crate::application::config::{ApplicationConfig};
 use crate::common::*;
-use crate::context::{Context, ContextReference, ServiceIndex};
+use crate::context::{Context, ContextReference};
 use crate::device;
-use crate::initrc::UnitType;
-use crate::mount;
-use crate::network;
+
+
+
 use crate::server;
 use crate::sysfs_walker;
 use crate::ueventd;
@@ -155,7 +155,7 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
 
     let cloned_context = context.clone();
     // Needed for the signal function below
-    let mut tx = tx_orig.clone();
+    let tx = tx_orig.clone();
 
     let rng_main = Arc::new(Mutex::new(rand::rngs::SmallRng::from_seed([
         2, 5, 6, 7, 4, 3, 5, 6, 7, 5, 4, 3, 5, 6, 7, 7,
@@ -165,9 +165,9 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
     tokio::task::spawn_blocking(move || {
         while let Ok(msg) = rx.recv() {
             let cloned_context = context.clone();
-            let mount_context = context.clone();
-            let mut tx = tx_orig.clone();
-            let rng = rng_main.clone();
+            let _mount_context = context.clone();
+            let tx = tx_orig.clone();
+            let _rng = rng_main.clone();
             match msg {
                 TaskMessage::ConfigureNetworkLoopback => tokio::spawn(async move {
                     //debug!("Configure Loopback network interface");

@@ -22,7 +22,7 @@ use serde::Deserialize;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::application::config::{Application, ApplicationConfig};
+use crate::application::config::{ApplicationConfig};
 
 #[derive(Deserialize, Debug)]
 pub struct Config {

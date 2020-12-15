@@ -24,7 +24,7 @@ use std::ffi::CString;
 use std::fmt;
 use std::path::Path;
 use std::str;
-use tracing::{debug, error, info, Level};
+use tracing::{debug, error};
 use uventrc_parser::UEventRcConfig;
 
 #[derive(PartialEq)]
@@ -201,7 +201,7 @@ fn handle_uevent(event: UEvent, cfg: &UEventRcConfig) -> Result<DeviceChangeInfo
     }
 }
 
-fn handle_remove(event: UEvent, cfg: &UEventRcConfig) -> Result<DeviceChangeInfo, ()> {
+fn handle_remove(_event: UEvent, _cfg: &UEventRcConfig) -> Result<DeviceChangeInfo, ()> {
     Err(())
 }
 
@@ -219,7 +219,7 @@ fn make_dir_if_needed(dev: &Path) -> bool {
 }
 
 /// Return true if this event is meant for a subsystem device
-fn is_subsystem_device(event: &UEvent, cfg: &UEventRcConfig) -> bool {
+fn is_subsystem_device(_event: &UEvent, _cfg: &UEventRcConfig) -> bool {
     false
 }
 

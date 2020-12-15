@@ -11,6 +11,6 @@
     limitations under the License.
 */
 
-pub fn launch(name: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn launch(_name: &str) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }

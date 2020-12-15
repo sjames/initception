@@ -16,7 +16,7 @@
 #![feature(custom_inner_attributes)]
 use getopts::Options;
 use std::env;
-use tracing::{error, info, Level};
+use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
 extern crate initception;
