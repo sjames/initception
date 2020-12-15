@@ -24,7 +24,7 @@ fn create_self_command(name:&str) -> unshare::Command {
 
 /// launch a process, returining the Child structure for the newly
 /// launched child process
-pub fn launch_service(spawned_ref: RuntimeEntityReference, uuid: String) -> Result<(), nix::Error> {
+pub fn launch_service(spawned_ref: RuntimeEntityReference) -> Result<(), nix::Error> {
     let mut entity: &mut RuntimeEntity = &mut spawned_ref.write().unwrap();
 
     if let &mut RuntimeEntity::Service(spawn) = &mut entity {
@@ -124,14 +124,28 @@ pub fn launch_service(spawned_ref: RuntimeEntityReference, uuid: String) -> Resu
             }
         }
 
-        if service.is_notify_type() {
-            cmd.env("NOTIFY_SOCKET", &uuid);
-        }
+        // Socket for the application to connect back to the application manager
+        let (my_client_sock, child_client_socket) = match UnixStream::pair() {
+            Ok((sock1, sock2)) => (sock1, sock2),
+            Err(e) => {
+                panic!("Couldn't create a pair of sockets for app server: {:?}", e);
+            }
+        };
 
+        let raw_fd = child_client_socket.into_raw_fd();
+        spawn.server_fd = Some(my_client_sock.into_raw_fd());
+    
+        cmd.env("NOTIFY_APP_CLIENT_FD", format!("{}", raw_fd));
+        cmd.file_descriptor(raw_fd, Fd::inherit());
+
+
+        //
+        //
+        // Socket for the application to host the application server
         let (mysock, childsocket) = match UnixStream::pair() {
             Ok((sock1, sock2)) => (sock1, sock2),
             Err(e) => {
-                panic!("Couldn't create a pair of sockets: {:?}", e);
+                panic!("Couldn't create a pair of sockets for app manager server: {:?}", e);
             }
         };
         
@@ -139,7 +153,7 @@ pub fn launch_service(spawned_ref: RuntimeEntityReference, uuid: String) -> Resu
         let raw_fd = childsocket.into_raw_fd();
         spawn.client_fd = Some(mysock.into_raw_fd());
     
-        cmd.env("NOTIFY_APP_FD", format!("{}", raw_fd));
+        cmd.env("NOTIFY_APP_SERVER_FD", format!("{}", raw_fd));
         cmd.file_descriptor(raw_fd, Fd::inherit());
 
         debug!("Before spawn");
@@ -166,9 +180,7 @@ pub fn launch_service(spawned_ref: RuntimeEntityReference, uuid: String) -> Resu
             } else {
                 spawn.state = RunningState::Running;
             }
-
             spawn.start_count = spawn.start_count + 1;
-            spawn.uuid = Some(uuid);
         }
 
         Ok(())
