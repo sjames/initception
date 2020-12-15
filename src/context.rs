@@ -17,6 +17,9 @@ use ttrpc::r#async::Client;
 
 use crate::application::config::ApplicationConfig;
 
+use std::time::Instant;
+
+
 pub enum RuntimeEntity {
     Service(SpawnedService),
     Unit(SpawnedUnit),
@@ -41,6 +44,21 @@ impl RuntimeEntity {
             RuntimeEntity::Unit(_u) => {}
         }
     }
+
+    pub fn record_watchdog(&mut self) {
+        match self {
+            RuntimeEntity::Service(s) => s.record_watchdog(),
+            RuntimeEntity::Unit(_u) => {}
+        }
+    }
+
+    pub fn get_last_watchdog(&mut self) -> Option<Instant> {
+        match self {
+            RuntimeEntity::Service(s) => s.get_last_watchdog(),
+            RuntimeEntity::Unit(_u) => {None}
+        }
+    }
+
 }
 
 #[derive(Debug)]
@@ -65,10 +83,11 @@ pub struct SpawnedService {
     pub uuid: Option<String>, // The UUid for this instance of the application
     pub proxy: Option<ApplicationServiceClient>,
     // This is the socket to communicate with the application server
-    pub client_fd: Option<i32>,
+    pub client_fd: Option<UnixStream>,
     // socket to host the application manager server
-    pub server_fd: Option<i32>,
+    pub server_fd: Option<UnixStream>,
     pub appserver_terminate_handler: Option<tokio::sync::oneshot::Sender<()>>,
+    last_watchdog : Option<Instant>,
 }
 
 impl SpawnedService {
@@ -82,19 +101,22 @@ impl SpawnedService {
             // proxy will get dropped here.
         }
 
-        if let Some(fd) = self.client_fd.take() {
-            unsafe {
-                let _fd = UnixStream::from_raw_fd(fd);
-                // let it go out of scope
-            }
+        if let Some(_fd) = self.client_fd.take() {
+            // let it go out of scope            
         }
 
-        if let Some(fd) = self.server_fd.take() {
-            unsafe {
-                let _fd = UnixStream::from_raw_fd(fd);
-                // let it go out of scope
-            }
+        if let Some(_fd) = self.server_fd.take() {
+            // let it go out of scope
+
         }
+    }
+
+    pub fn record_watchdog(&mut self) {
+        self.last_watchdog = Some(Instant::now());
+    }
+
+    pub fn get_last_watchdog(&self) -> Option<Instant> {
+        self.last_watchdog.clone()
     }
 }
 pub struct Context {
@@ -155,6 +177,7 @@ impl<'a> Context {
             client_fd: None,
             server_fd: None,
             appserver_terminate_handler: None,
+            last_watchdog:  None,
         };
 
         self.children
@@ -193,6 +216,7 @@ impl<'a> Context {
                     client_fd: None,
                     server_fd: None,
                     appserver_terminate_handler: None,
+                    last_watchdog : None,
                 };
                 context
                     .children

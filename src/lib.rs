@@ -29,3 +29,6 @@ mod ueventd;
 pub mod userids;
 pub mod uventrc_parser;
 pub mod zygote;
+
+// re-export ttrpc as all applications need them anyway
+pub use ttrpc;

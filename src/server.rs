@@ -23,15 +23,17 @@ use ttrpc;
 use ttrpc::r#async::Client;
 use ttrpc::r#async::Server;
 
-use std::os::unix::io::FromRawFd;
+//use std::os::unix::io::FromRawFd;
+use std::os::unix::net::UnixStream;
+use std::os::unix::io::IntoRawFd;
 use std::sync::Arc;
 
 struct ServiceManager {
     inner: InnerReference,
 }
 
-pub type InnerReference = std::sync::Arc<std::sync::RwLock<Inner>>;
-pub type InnerTxReference = std::sync::Arc<std::sync::Mutex<SyncTxHandle>>;
+type InnerReference = std::sync::Arc<std::sync::RwLock<Inner>>;
+type InnerTxReference = std::sync::Arc<std::sync::Mutex<SyncTxHandle>>;
 struct Inner {
     spawnref: RuntimeEntityReference, // reference to the runtime entity for this server
     tx: InnerTxReference,
@@ -78,12 +80,16 @@ impl application_interface_ttrpc::ApplicationManager for ServiceManager {
     async fn heartbeat(
         &self,
         _ctx: &::ttrpc::r#async::TtrpcContext,
-        _req: application_interface::HeartbeatRequest,
+        req: application_interface::HeartbeatRequest,
     ) -> ::ttrpc::Result<application_interface::HeartbeatReply> {
-        Err(ttrpc::Error::RpcStatus(::ttrpc::get_status(
-            ::ttrpc::Code::NOT_FOUND,
-            "/grpc.ApplicationManager/heartbeat is not supported".to_string(),
-        )))
+        let mut inner = self.inner.write().unwrap();
+        info!("Heartbeat received from : {:?}", inner.service_index);
+
+        let mut service = inner.spawnref.write().unwrap();
+        service.record_watchdog();
+
+       Ok(application_interface::HeartbeatReply::default()) 
+
     }
     async fn statechanged(
         &self,
@@ -102,6 +108,8 @@ impl application_interface_ttrpc::ApplicationManager for ServiceManager {
             }
             application_interface::StateChangedRequest_State::Running => {
                 let mut inner = self.inner.write().unwrap();
+
+                info!("Application is running");
 
                 // send this once
                 if let Some(tx) = inner.sender.take() {
@@ -160,15 +168,15 @@ pub async fn manage_a_service(
 
     //let mut server = Server::new().bind(&socket_name).unwrap().register_service(service);
 
-    let mut server = if let Ok(context) = client_spawnref.write().as_deref_mut() {
+    let (mut server, mut socket) = if let Ok(context) = client_spawnref.write().as_deref_mut() {
         match context {
             RuntimeEntity::Service(s) => {
-                if let Some(fd) = s.server_fd {
-                    Server::new()
+                if let Some(fd) = s.server_fd.take() {
+                    (Server::new()
                         .register_service(service)
-                        .add_listener(fd)
-                        .unwrap()
-                        .set_domain_unix()
+                        .set_domain_unix(),
+                    fd
+                    )
                 } else {
                     panic!("Expected file descriptor for server");
                 }
@@ -181,7 +189,7 @@ pub async fn manage_a_service(
         panic!("cannot lock context");
     };
 
-    match server.start().await {
+    match server.start_single(socket).await {
         Ok(_) => {
             info!("Server started normally");
 
@@ -211,7 +219,7 @@ pub async fn manage_a_service(
             match context {
                 RuntimeEntity::Service(s) => {
                     if let Some(fd) = s.client_fd.take() {
-                        s.proxy = Some(ApplicationServiceClient::new(Client::new(fd)));
+                        s.proxy = Some(ApplicationServiceClient::new(Client::new(fd.into_raw_fd())));
                     }
                 }
                 _ => {}

@@ -13,6 +13,8 @@ use std::os::unix::net::UnixStream;
 
 use tracing::debug;
 
+use crate::application::app::{NOTIFY_APP_CLIENT_FD,NOTIFY_APP_SERVER_FD};
+
 fn create_self_command(name: &str) -> unshare::Command {
     let path = std::fs::read_link("/proc/self/exe").expect("Unable to read /proc/self/exe");
 
@@ -132,9 +134,9 @@ pub fn launch_service(spawned_ref: RuntimeEntityReference) -> Result<(), nix::Er
         };
 
         let raw_fd = child_client_socket.into_raw_fd();
-        spawn.server_fd = Some(my_client_sock.into_raw_fd());
-
-        cmd.env("NOTIFY_APP_CLIENT_FD", format!("{}", raw_fd));
+        spawn.server_fd = Some(my_client_sock);
+        
+        cmd.env(NOTIFY_APP_CLIENT_FD, format!("{}", raw_fd));
         cmd.file_descriptor(raw_fd, Fd::inherit());
 
         //
@@ -152,9 +154,9 @@ pub fn launch_service(spawned_ref: RuntimeEntityReference) -> Result<(), nix::Er
 
         // raw_fd goes to the child process
         let raw_fd = childsocket.into_raw_fd();
-        spawn.client_fd = Some(mysock.into_raw_fd());
+        spawn.client_fd = Some(mysock);
 
-        cmd.env("NOTIFY_APP_SERVER_FD", format!("{}", raw_fd));
+        cmd.env(NOTIFY_APP_SERVER_FD, format!("{}", raw_fd));
         cmd.file_descriptor(raw_fd, Fd::inherit());
 
         debug!("Before spawn");
