@@ -10,7 +10,7 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 */
-
+#[allow(clippy::all)]
 use crate::context::{ContextReference, RuntimeEntity, ServiceIndex, UnitStatus};
 use crate::initrc::{Unit, UnitType};
 use nix::mount::{mount, MsFlags};
