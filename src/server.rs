@@ -100,8 +100,7 @@ impl application_interface_ttrpc::ApplicationManager for ServiceManager {
         let mut service = inner.spawnref.write().unwrap();
         service.record_watchdog();
 
-       Ok(application_interface::HeartbeatReply::default()) 
-
+        Ok(application_interface::HeartbeatReply::default())
     }
     async fn statechanged(
         &self,
@@ -184,10 +183,9 @@ pub async fn manage_a_service(
         match context {
             RuntimeEntity::Service(s) => {
                 if let Some(fd) = s.server_fd.take() {
-                    (Server::new()
-                        .register_service(service)
-                        .set_domain_unix(),
-                    fd
+                    (
+                        Server::new().register_service(service).set_domain_unix(),
+                        fd,
                     )
                 } else {
                     panic!("Expected file descriptor for server");
@@ -231,7 +229,8 @@ pub async fn manage_a_service(
             match context {
                 RuntimeEntity::Service(s) => {
                     if let Some(fd) = s.client_fd.take() {
-                        s.proxy = Some(ApplicationServiceClient::new(Client::new(fd.into_raw_fd())));
+                        s.proxy =
+                            Some(ApplicationServiceClient::new(Client::new(fd.into_raw_fd())));
                     }
                 }
                 _ => {}

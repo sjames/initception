@@ -32,7 +32,6 @@ use crate::application::config::ApplicationConfig;
 
 use std::time::Instant;
 
-
 pub enum RuntimeEntity {
     Service(SpawnedService),
     Unit(SpawnedUnit),
@@ -68,10 +67,9 @@ impl RuntimeEntity {
     pub fn get_last_watchdog(&mut self) -> Option<Instant> {
         match self {
             RuntimeEntity::Service(s) => s.get_last_watchdog(),
-            RuntimeEntity::Unit(_u) => {None}
+            RuntimeEntity::Unit(_u) => None,
         }
     }
-
 }
 
 #[derive(Debug)]
@@ -100,7 +98,7 @@ pub struct SpawnedService {
     // socket to host the application manager server
     pub server_fd: Option<UnixStream>,
     pub appserver_terminate_handler: Option<tokio::sync::oneshot::Sender<()>>,
-    last_watchdog : Option<Instant>,
+    last_watchdog: Option<Instant>,
 }
 
 impl SpawnedService {
@@ -115,12 +113,11 @@ impl SpawnedService {
         }
 
         if let Some(_fd) = self.client_fd.take() {
-            // let it go out of scope            
+            // let it go out of scope
         }
 
         if let Some(_fd) = self.server_fd.take() {
             // let it go out of scope
-
         }
     }
 
@@ -190,7 +187,7 @@ impl<'a> Context {
             client_fd: None,
             server_fd: None,
             appserver_terminate_handler: None,
-            last_watchdog:  None,
+            last_watchdog: None,
         };
 
         self.children
@@ -229,7 +226,7 @@ impl<'a> Context {
                     client_fd: None,
                     server_fd: None,
                     appserver_terminate_handler: None,
-                    last_watchdog : None,
+                    last_watchdog: None,
                 };
                 context
                     .children

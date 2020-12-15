@@ -11,22 +11,20 @@
     limitations under the License.
 */
 
+use crate::application::src_gen::{application_interface, application_interface_ttrpc as app_int};
 /// Application API.  Applications communicate with the init process
 /// using ttrpc. These interfaces hide the use of ttrpc.
-/// 
+///
 use async_trait::async_trait;
-use crate::application::src_gen::{
-    application_interface, application_interface_ttrpc as app_int,
-};
 use ttrpc;
-use ttrpc::r#async::{Client,Server};
+use ttrpc::r#async::{Client, Server};
 
 use std::env;
 use std::error::Error;
 
-use std::time::SystemTime;
-use std::os::unix::net::UnixStream;
 use std::os::unix::io::FromRawFd;
+use std::os::unix::net::UnixStream;
+use std::time::SystemTime;
 
 //use std::os::unix::net::UnixStream;
 
@@ -54,13 +52,10 @@ pub fn get_server_fd() -> Result<i32, Box<dyn Error>> {
     get_fd(NOTIFY_APP_SERVER_FD)
 }
 
-pub const NOTIFY_APP_CLIENT_FD:&str = "NOTIFY_APP_CLIENT_FD";
-pub const NOTIFY_APP_SERVER_FD:&str = "NOTIFY_APP_SERVER_FD";
-
+pub const NOTIFY_APP_CLIENT_FD: &str = "NOTIFY_APP_CLIENT_FD";
+pub const NOTIFY_APP_SERVER_FD: &str = "NOTIFY_APP_SERVER_FD";
 
 // Application entry
-
-
 
 pub struct ApplicationClient {
     manager_proxy: app_int::ApplicationManagerClient,
@@ -131,8 +126,7 @@ where
         &self,
         _ctx: &ttrpc::r#async::TtrpcContext,
         _req: crate::application::src_gen::application_interface::PauseRequest,
-    ) -> ttrpc::Result<crate::application::src_gen::application_interface::PauseResponse>
-    {
+    ) -> ttrpc::Result<crate::application::src_gen::application_interface::PauseResponse> {
         let mut inner = self.inner.write().unwrap();
         if let Some(on_pause) = &mut inner.on_pause {
             on_pause();
@@ -148,8 +142,7 @@ where
         &self,
         _ctx: &ttrpc::r#async::TtrpcContext,
         _req: crate::application::src_gen::application_interface::ResumeRequest,
-    ) -> ttrpc::Result<crate::application::src_gen::application_interface::ResumeResponse>
-    {
+    ) -> ttrpc::Result<crate::application::src_gen::application_interface::ResumeResponse> {
         let mut inner = self.inner.write().unwrap();
         if let Some(on_resume) = &mut inner.on_resume {
             on_resume();
@@ -181,13 +174,15 @@ where
         &self,
         _ctx: &ttrpc::r#async::TtrpcContext,
         req: crate::application::src_gen::application_interface::SessionChangedRequest,
-    ) -> ttrpc::Result<
-        crate::application::src_gen::application_interface::SessionChangedResponse,
-    > {
+    ) -> ttrpc::Result<crate::application::src_gen::application_interface::SessionChangedResponse>
+    {
         let mut inner = self.inner.write().unwrap();
         if let Some(on_session_changed) = &mut inner.on_session_changed {
             on_session_changed(req.session_name.as_str());
-            Ok(crate::application::src_gen::application_interface::SessionChangedResponse::default())
+            Ok(
+                crate::application::src_gen::application_interface::SessionChangedResponse::default(
+                ),
+            )
         } else {
             Err(ttrpc::Error::RpcStatus(ttrpc::get_status(
                 ttrpc::Code::NOT_FOUND,
@@ -197,7 +192,7 @@ where
     }
 }
 
-impl<'a,P, R, S, C> ApplicationServer<P, R, S, C>
+impl<'a, P, R, S, C> ApplicationServer<P, R, S, C>
 where
     P: FnMut() + Send + Sync + 'a,
     R: FnMut() + Send + Sync + 'a,
@@ -217,7 +212,7 @@ where
         }
     }
 
-    pub fn get_server<'b>(on_pause: P , on_resume: R, on_stop: S, on_session_changed: C) -> Server
+    pub fn get_server<'b>(on_pause: P, on_resume: R, on_stop: S, on_session_changed: C) -> Server
     where
         P: FnMut() + Send + Sync + 'static,
         R: FnMut() + Send + Sync + 'static,
@@ -229,18 +224,26 @@ where
             on_resume,
             on_stop,
             on_session_changed,
-        )) as Box<dyn crate::application::src_gen::application_interface_ttrpc::ApplicationService + Send + Sync>;
+        ))
+            as Box<
+                dyn crate::application::src_gen::application_interface_ttrpc::ApplicationService
+                    + Send
+                    + Sync,
+            >;
         let service = std::sync::Arc::new(service);
-        let service = crate::application::src_gen::application_interface_ttrpc::create_application_service(service);
+        let service =
+            crate::application::src_gen::application_interface_ttrpc::create_application_service(
+                service,
+            );
         Server::new().register_service(service).set_domain_unix()
     }
 }
 
-pub async fn start_server(mut server: Server) -> Server{
+pub async fn start_server(mut server: Server) -> Server {
     let server_fd = get_server_fd().unwrap();
-    let stream = unsafe {UnixStream::from_raw_fd(server_fd)};
+    let stream = unsafe { UnixStream::from_raw_fd(server_fd) };
     if let Err(e) = server.start_single(stream).await.map_err(|e| Box::new(e)) {
-        panic!("Cannot start server due to: {}",e);
+        panic!("Cannot start server due to: {}", e);
     }
     server
 }
