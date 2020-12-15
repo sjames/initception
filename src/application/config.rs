@@ -12,6 +12,11 @@ pub trait ApplicationConfig{
     fn after(&self) -> &'static [&'static str];
     fn start_params(&self) -> &'static [&'static str];
     fn restart_params(&self) -> &'static [&'static str];
+    /// restart_count -> (restarts, delay_ms)
+    /// return a tuple with two elements
+    /// restarts : How many times to attempt a restart of this application
+    /// delay : Delay between restarts
+    fn restart_count(&self) -> Option<(u32,u32)>;
     fn class(&self) -> Option<&'static str>;
     fn io_prio(&self) -> Option<&'static str>;
     fn uid(&self) -> u32;

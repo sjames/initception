@@ -1,3 +1,3 @@
 pub mod config;
-pub mod app_interface;
+pub mod app;
 pub mod src_gen;

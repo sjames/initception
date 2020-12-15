@@ -26,6 +26,7 @@ use crate::application::src_gen::application_interface_ttrpc::ApplicationService
 use async_trait::async_trait;
 
 use std::sync::Arc;
+use std::os::unix::io::FromRawFd;
 
 
 struct ServiceManager 
@@ -116,7 +117,6 @@ impl application_interface_ttrpc::ApplicationManager for ServiceManager {
 /// the spanwnref gives you a shared reference to the launched service context
 pub async fn manage_a_service(
     tx: SyncTxHandle,
-    socket_name : String,
     spawnref: RuntimeEntityReference,
     service_index : ServiceIndex,
 ) {
@@ -127,31 +127,59 @@ pub async fn manage_a_service(
 
     let (app_running_signal_tx,app_running_signal_rx) = oneshot_channel::<()>();
 
+    // this channel is used to signal termination of the server
+    let (app_server_terminate_tx,app_server_terminate_rx) = oneshot_channel::<()>();
+
     let client_spawnref = spawnref.clone();
 
     let service = Box::new(ServiceManager::new(spawnref, tx_arc, service_index, app_running_signal_tx)) as Box<dyn application_interface_ttrpc::ApplicationManager + Send + Sync>;
     let service = Arc::new(service);
     let service = application_interface_ttrpc::create_application_manager(service);
 
-    let socket_name = String::from("unix://") + &socket_name;
-    
-    let mut server = Server::new().bind(&socket_name).unwrap().register_service(service);
+    //let mut server = Server::new().bind(&socket_name).unwrap().register_service(service);
 
-    let handle = tokio::spawn(async move {
-       match server.start().await {
-            Ok(_) => {
-                info!("Server exited normally");
+    let mut server = if let Ok(context) = client_spawnref.write().as_deref_mut() {
+        match context {
+            RuntimeEntity::Service(s) => {
+                if let Some(fd) = s.server_fd {
+                    Server::new().register_service(service).add_listener(fd).unwrap().set_domain_unix()
+                } else {
+                    panic!("Expected file descriptor for server");
+                }
             }
-            Err(e) => {
-                error!("Server exited with error: {}",e );
+            _ => {
+                panic!("Expected RuntimeEntity::Service");
             }
-       }
-    });
+        }
+    } else {
+        panic!("cannot lock context");
+    };
+    
+    match server.start().await {
+        Ok(_) => {
+            info!("Server started normally");
+
+            if let Ok(context) = client_spawnref.write().as_deref_mut() {
+                match context {
+                    RuntimeEntity::Service(s) => {
+                        if let None = s.appserver_terminate_handler {
+                            s.appserver_terminate_handler = Some(app_server_terminate_tx);
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        Err(e) => {
+            panic!("Server not created: {}",e );
+        }
+    }
+
 
     // wait for a "reasonable time" for the application to connect back.  The application must
     // load the server before connecting back so the client we launch here does not fail.
     if let Err(_) = timeout(Duration::from_millis(2000), app_running_signal_rx).await {
-        println!("Application did not connect within 2000 milliseconds");
+        error!("Application did not connect within 2000 milliseconds");
     } else {
         // Application connected. Create the proxy
         if let Ok(context) = client_spawnref.write().as_deref_mut() {
@@ -167,9 +195,18 @@ pub async fn manage_a_service(
         }
     }
 
-    // wait until the server shutsdown
-    let _ret = handle.await;
-    
+    // cleanup when the application has terminated
+    match app_server_terminate_rx.await {
+        Ok(_) => {
+            debug!("App server received termination message");
+            if let Err(_) = server.shutdown().await {
+                error!("App server shutdown failure");
+            }
+        }
+        Err(_) => {
+            panic!("App server terminate channel error");
+        }
+    }
 }
 
 

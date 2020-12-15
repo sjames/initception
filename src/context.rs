@@ -9,6 +9,8 @@ use crate::process::launch_service;
 
 use tracing::{debug, info, warn};
 use unshare::ChildEvent;
+use std::os::unix::io::FromRawFd;
+use std::os::unix::net::UnixStream;
 
 use ttrpc::r#async::Client;
 use crate::application::src_gen::application_interface_ttrpc::ApplicationServiceClient;
@@ -31,6 +33,12 @@ impl RuntimeEntity {
         match *self {
             RuntimeEntity::Unit(_) => true,
             _ => false,
+        }
+    }
+    pub fn cleanup_resources(&mut self) {
+        match self {
+            RuntimeEntity::Service(s) => s.cleanup_resources(),
+            RuntimeEntity::Unit(_u) => {},
         }
     }
 }
@@ -58,8 +66,37 @@ pub struct SpawnedService {
     pub proxy : Option<ApplicationServiceClient>,
     // This is the socket to communicate with the application server
     pub client_fd : Option<i32>,
+    // socket to host the application manager server
+    pub server_fd : Option<i32>,
+    pub appserver_terminate_handler :  Option<tokio::sync::oneshot::Sender<()>>,
 }
 
+impl SpawnedService {
+    pub fn cleanup_resources(&mut self) {
+        if let Some(sender) = self.appserver_terminate_handler.take() {
+            if let Err(_ ) = sender.send(()) {
+                panic!("Receiver dropped"); 
+            }
+        }
+        if let Some(_proxy) = self.proxy.take() {
+           // proxy will get dropped here.
+        }
+
+        if let Some(fd) = self.client_fd.take() {
+            unsafe {
+            let _fd = UnixStream::from_raw_fd(fd);
+            // let it go out of scope
+            }
+        }
+
+        if let Some(fd) = self.server_fd.take() {
+            unsafe {
+            let _fd = UnixStream::from_raw_fd(fd);
+            // let it go out of scope
+            }
+        }
+    }
+}
 pub struct Context {
     children: Graph<RuntimeEntityReference, u32>,
 }
@@ -118,6 +155,8 @@ impl<'a> Context {
             uuid : None,
             proxy : None,
             client_fd : None,
+            server_fd : None,
+            appserver_terminate_handler : None,
         };
 
         self.children.add_node(std::sync::Arc::new(std::sync::RwLock::new(
@@ -155,6 +194,8 @@ impl<'a> Context {
                     uuid: None,
                     proxy: None,
                     client_fd : None,
+                    server_fd : None,
+                    appserver_terminate_handler : None,
                 };
                 context
                     .children
@@ -423,8 +464,8 @@ impl<'a> Context {
         }
     }
 
-    pub fn launch_service(&self, index: ServiceIndex, uuid: String) -> Result<(), nix::Error> {
-        launch_service(self.children[index].clone(), uuid) // launch_service does the checks.
+    pub fn launch_service(&self, index: ServiceIndex) -> Result<(), nix::Error> {
+        launch_service(self.children[index].clone()) // launch_service does the checks.
     }
 
     fn set_state(&mut self, index: ServiceIndex, state: RunningState) {

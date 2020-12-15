@@ -160,6 +160,7 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                     //debug!("Configure Loopback network interface");
                     //let ip = IpNetwork::V4("127.0.0.1".parse().unwrap());
                     //network::configure_network_interface(ip, String::from("lo")).await
+                    debug!("Loopback network set up (skipped)");
                 }),
                 TaskMessage::ProcessRunning(id) => tokio::spawn(async move {
                     debug!("Process Running {:?}", id);
@@ -187,6 +188,10 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                 }),
                 TaskMessage::ProcessExited(id) => tokio::spawn(async move {
                     debug!("Pid {:?} has exited", id);
+                    if let Some(context) =  cloned_context.write().unwrap().get_service(id) {
+                       context.write().unwrap().cleanup_resources();
+                    }
+                    
                     if let Some(time_ms) = cloned_context.read().unwrap().check_restart(id) {
                         tokio::spawn(async move {
                             delay_for(Duration::from_millis(time_ms as u64)).await;
@@ -207,21 +212,15 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                     let context = cloned_context.read().unwrap();
                     let service = context.get_service(id).unwrap();
                     let notify_type = context.is_notify_type(id);
-                    let mut rng = rng.lock().unwrap();
-                    let uuid = create_uuid(&mut rng); /* uuid::Uuid::new_v4().to_string();*/
 
                     // setup the socket to wait for this process to connect
                     if notify_type {
-                        // 0 as the first byte of the address on Linux makes this socket abstract.
-                        let uuid_abstract = String::from("\0") + &uuid;
                         let tx = tx.clone();
                         tokio::spawn(async move {
-                            debug!("Binding to address {:?}", uuid_abstract);
-                            server::manage_a_service(tx, uuid_abstract, service,id).await;
-
+                            server::manage_a_service(tx, service,id).await;
                         });
                     }
-                    if let Err(err) = context.launch_service(id, uuid) {
+                    if let Err(err) = context.launch_service(id) {
                         //TODO: Handle error
                         error!("Error launching service : {:?} due to {}", id, err);
                     } else {

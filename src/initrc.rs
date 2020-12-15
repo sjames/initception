@@ -186,7 +186,10 @@ impl From<&dyn ApplicationConfig> for Service {
             after : None,
             start_params : Some(cfg.start_params().iter().map(|d|String::from(*d)).collect()),
             restart_params : Some(cfg.restart_params().iter().map(|d|String::from(*d)).collect()),
-            restart : None,
+            restart : if let Some(restart) = cfg.restart_count() {
+                Some(Restart { count: restart.0, period_ms: restart.1})
+
+            } else { None},
             class : cfg.class().map(|c| String::from(c)),
             io_prio : cfg.io_prio().map(|c| String::from(c)),
             uid : Some(cfg.uid()),
