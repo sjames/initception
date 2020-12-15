@@ -93,20 +93,20 @@ impl application_interface_ttrpc::ApplicationManager for ServiceManager {
         &self,
         _ctx: &::ttrpc::r#async::TtrpcContext,
         _req: application_interface::HeartbeatRequest,
-    ) -> ::ttrpc::Result<application_interface::HeartbeatReply> {
+    ) -> ::ttrpc::Result<application_interface::HeartbeatResponse> {
         let inner = self.inner.write().unwrap();
         info!("Heartbeat received from : {:?}", inner.service_index);
 
         let mut service = inner.spawnref.write().unwrap();
         service.record_watchdog();
 
-        Ok(application_interface::HeartbeatReply::default())
+        Ok(application_interface::HeartbeatResponse::default())
     }
     async fn statechanged(
         &self,
         _ctx: &::ttrpc::r#async::TtrpcContext,
         _req: application_interface::StateChangedRequest,
-    ) -> ::ttrpc::Result<application_interface::StateChangedReply> {
+    ) -> ::ttrpc::Result<application_interface::StateChangedResponse> {
         match _req.state {
             application_interface::StateChangedRequest_State::Paused => {
                 let inner = self.inner.read().unwrap();
@@ -115,7 +115,7 @@ impl application_interface_ttrpc::ApplicationManager for ServiceManager {
                 if let Err(_) = tx.send(TaskMessage::ProcessPaused(inner.service_index)) {
                     panic!("Receiver dropped");
                 }
-                Ok(application_interface::StateChangedReply::default())
+                Ok(application_interface::StateChangedResponse::default())
             }
             application_interface::StateChangedRequest_State::Running => {
                 let mut inner = self.inner.write().unwrap();
@@ -134,7 +134,7 @@ impl application_interface_ttrpc::ApplicationManager for ServiceManager {
                 if let Err(_) = tx.send(TaskMessage::ProcessRunning(inner.service_index)) {
                     panic!("Receiver dropped");
                 }
-                Ok(application_interface::StateChangedReply::default())
+                Ok(application_interface::StateChangedResponse::default())
             }
             application_interface::StateChangedRequest_State::Stopped => {
                 let inner = self.inner.read().unwrap();
@@ -143,7 +143,7 @@ impl application_interface_ttrpc::ApplicationManager for ServiceManager {
                 if let Err(_) = tx.send(TaskMessage::ProcessStopped(inner.service_index)) {
                     panic!("Receiver dropped");
                 }
-                Ok(application_interface::StateChangedReply::default())
+                Ok(application_interface::StateChangedResponse::default())
             }
         }
     }

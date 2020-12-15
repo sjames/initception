@@ -20,6 +20,7 @@ service ApplicationService {
     rpc resume(ResumeRequest) returns (ResumeResponse);
     rpc stop(StopRequest) returns (StopResponse);
     rpc session_changed(SessionChangedRequest) returns (SessionChangedResponse);
+    rpc property_changed(PropertyChangedRequest) returns (PropertyChangedResponse);
 }
 
 enum ReturnStatus {
@@ -73,6 +74,16 @@ message SessionChangedResponse {
     ReturnStatus status = 1;
 }
 
+message PropertyChangedRequest {
+    string key = 1;
+    string value = 2;
+}
+
+message PropertyChangedResponse {
+    
+}
+
+
 message Timestamp {
     uint64 seconds = 1;
     uint32 nanos = 2;
@@ -81,7 +92,7 @@ message Timestamp {
 message HeartbeatRequest {
     Timestamp timestamp = 1;
 }
-message HeartbeatReply{}
+message HeartbeatResponse{}
 
 message StateChangedRequest{
     enum State {
@@ -91,10 +102,46 @@ message StateChangedRequest{
     }
     State state = 1;
 }
-message StateChangedReply {}
+message StateChangedResponse {}
+
+message GetPropertyRequest {
+    string key = 1;
+}
+
+message GetPropertyResponse {
+    ReturnStatus status = 1;
+    string value = 2;
+}
+
+enum SetPropertyOptions {
+    NONE = 0;
+    // if this flag is set and the property is created by this call. it is set read-only
+    // The call will fail if the property already exists.
+    CREATE_READ_ONLY = 1; 
+}
+
+message SetPropertyRequest {
+    string key = 1;
+    string value = 2;
+    SetPropertyOptions option = 3;
+}
+
+message SetPropertyResponse {
+    ReturnStatus status = 1;
+}
+
+message AddPropertyFilterRequest {
+    string regex = 1;
+}
+
+message AddPropertyFilterResponse {
+    ReturnStatus status = 1;
+}
 
 service ApplicationManager {
-    rpc heartbeat(HeartbeatRequest) returns (HeartbeatReply);
-    rpc statechanged(StateChangedRequest) returns (StateChangedReply);
-    
+    rpc heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+    rpc statechanged(StateChangedRequest) returns (StateChangedResponse);
+    rpc get_property(GetPropertyRequest) returns (GetPropertyResponse);
+    rpc set_property(SetPropertyRequest) returns (SetPropertyResponse);
+    rpc add_property_filter(AddPropertyFilterRequest) returns (AddPropertyFilterResponse);
 }
