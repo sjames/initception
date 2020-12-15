@@ -8,7 +8,6 @@ extern crate initception;
 use initception::sysfs_walker;
 use initception::zygote;
 
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     print!(".");
 
@@ -26,8 +25,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut opts = Options::new();
     opts.optopt("i", "", "Identity", "zygote|sysfswalk");
     opts.optopt("k", "", "key", "secret key");
-    opts.optopt("e","","executable","executable name");
-    opts.optopt("n","","not pid 1","Not launched as PID1 process");
+    opts.optopt("e", "", "executable", "executable name");
+    opts.optopt("n", "", "not pid 1", "Not launched as PID1 process");
 
     let matches = match opts.parse(&args[1..]) {
         Ok(m) => m,
@@ -54,7 +53,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         info!("I N I T C E P T I O N");
         if notpid1.is_some() {
-            initception::initception::initception_main(false)    
+            initception::initception::initception_main(false)
         } else {
             // launch as PID1
             initception::initception::initception_main(true)

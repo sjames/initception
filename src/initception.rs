@@ -21,6 +21,7 @@ use tokio::task;
 use ipnetwork::{IpNetwork, Ipv4Network};
 use rtnetlink::{new_connection, Error as RtNetlinkError, Handle};
 
+use crate::application::config::{Application, ApplicationConfig};
 use crate::common::*;
 use crate::context::{Context, ContextReference, ServiceIndex};
 use crate::device;
@@ -31,16 +32,13 @@ use crate::server;
 use crate::sysfs_walker;
 use crate::ueventd;
 use crate::zygote;
-use crate::application::config::{ApplicationConfig,Application};
 
-
-pub fn initception_main(pid1: bool ) -> Result<(), Box<dyn Error>> {
-
+pub fn initception_main(pid1: bool) -> Result<(), Box<dyn Error>> {
     if pid1 {
         if let Err(e) = device::mount_basics() {
             error!("Unable to mount basics");
             return Err(e);
-        }    
+        }
     }
 
     if pid1 {
@@ -67,12 +65,15 @@ pub fn initception_main(pid1: bool ) -> Result<(), Box<dyn Error>> {
     }
 }
 
-pub fn initception_main_static(configs : &[&dyn ApplicationConfig], is_pid1: bool) -> Result<(),Box<dyn Error>> {
+pub fn initception_main_static(
+    configs: &[&dyn ApplicationConfig],
+    is_pid1: bool,
+) -> Result<(), Box<dyn Error>> {
     if is_pid1 {
         if let Err(e) = device::mount_basics() {
             error!("Unable to mount basics");
             return Err(e);
-        }    
+        }
     }
 
     if is_pid1 {
@@ -91,7 +92,7 @@ pub fn initception_main_static(configs : &[&dyn ApplicationConfig], is_pid1: boo
     Todo: Add units here
     context.add_unit(unit);
     */
-    
+
     context.fixup_dependencies();
     let context = Arc::new(RwLock::new(context));
 
@@ -102,7 +103,6 @@ pub fn initception_main_static(configs : &[&dyn ApplicationConfig], is_pid1: boo
             Ok(())
         }
     }
-
 }
 
 // We don't need a crypto backed uuid here
@@ -138,7 +138,7 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
     // Spawn the task for uevent processing
     let tx = tx_orig.clone();
     // uevent calls blocking functions.
-    tokio::task::spawn_blocking( || {ueventd::uevent_main(tx)});
+    tokio::task::spawn_blocking(|| ueventd::uevent_main(tx));
 
     let cloned_context = context.clone();
     // Needed for the signal function below
@@ -149,7 +149,7 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
     ])));
 
     // This is the main dispatch function for initception
-    tokio::task::spawn_blocking( move || {
+    tokio::task::spawn_blocking(move || {
         while let Ok(msg) = rx.recv() {
             let cloned_context = context.clone();
             let mount_context = context.clone();
@@ -188,10 +188,10 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                 }),
                 TaskMessage::ProcessExited(id) => tokio::spawn(async move {
                     debug!("Pid {:?} has exited", id);
-                    if let Some(context) =  cloned_context.write().unwrap().get_service(id) {
-                       context.write().unwrap().cleanup_resources();
+                    if let Some(context) = cloned_context.write().unwrap().get_service(id) {
+                        context.write().unwrap().cleanup_resources();
                     }
-                    
+
                     if let Some(time_ms) = cloned_context.read().unwrap().check_restart(id) {
                         tokio::spawn(async move {
                             delay_for(Duration::from_millis(time_ms as u64)).await;
@@ -203,7 +203,6 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                 }),
                 TaskMessage::ProcessPaused(id) => tokio::spawn(async move {
                     debug!("Pid {:?} has confirmed pause", id);
-                    
                 }),
                 TaskMessage::ProcessStopped(id) => tokio::spawn(async move {
                     debug!("Pid {:?} has confirmed stop", id);
@@ -217,7 +216,7 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                     if notify_type {
                         let tx = tx.clone();
                         tokio::spawn(async move {
-                            server::manage_a_service(tx, service,id).await;
+                            server::manage_a_service(tx, service, id).await;
                         });
                     }
                     if let Err(err) = context.launch_service(id) {

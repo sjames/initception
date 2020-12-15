@@ -146,7 +146,7 @@ impl TryFrom<&[u8]> for UEvent {
     }
 }
 
-/// This function calls blocking functions. 
+/// This function calls blocking functions.
 pub async fn uevent_main(tx: std::sync::mpsc::Sender<TaskMessage>) {
     let kernel_unicast: SocketAddr = SocketAddr::new(0, 0xFFFF_FFFF);
     if let Some(uevent_cfg) = uventrc_parser::load_config() {

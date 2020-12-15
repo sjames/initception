@@ -7,13 +7,13 @@ use crate::mount;
 use crate::network;
 use crate::process::launch_service;
 
-use tracing::{debug, info, warn};
-use unshare::ChildEvent;
 use std::os::unix::io::FromRawFd;
 use std::os::unix::net::UnixStream;
+use tracing::{debug, info, warn};
+use unshare::ChildEvent;
 
-use ttrpc::r#async::Client;
 use crate::application::src_gen::application_interface_ttrpc::ApplicationServiceClient;
+use ttrpc::r#async::Client;
 
 use crate::application::config::ApplicationConfig;
 
@@ -38,7 +38,7 @@ impl RuntimeEntity {
     pub fn cleanup_resources(&mut self) {
         match self {
             RuntimeEntity::Service(s) => s.cleanup_resources(),
-            RuntimeEntity::Unit(_u) => {},
+            RuntimeEntity::Unit(_u) => {}
         }
     }
 }
@@ -63,36 +63,36 @@ pub struct SpawnedService {
     pub state: RunningState,
     pub exit_status: Option<unshare::ExitStatus>,
     pub uuid: Option<String>, // The UUid for this instance of the application
-    pub proxy : Option<ApplicationServiceClient>,
+    pub proxy: Option<ApplicationServiceClient>,
     // This is the socket to communicate with the application server
-    pub client_fd : Option<i32>,
+    pub client_fd: Option<i32>,
     // socket to host the application manager server
-    pub server_fd : Option<i32>,
-    pub appserver_terminate_handler :  Option<tokio::sync::oneshot::Sender<()>>,
+    pub server_fd: Option<i32>,
+    pub appserver_terminate_handler: Option<tokio::sync::oneshot::Sender<()>>,
 }
 
 impl SpawnedService {
     pub fn cleanup_resources(&mut self) {
         if let Some(sender) = self.appserver_terminate_handler.take() {
-            if let Err(_ ) = sender.send(()) {
-                panic!("Receiver dropped"); 
+            if let Err(_) = sender.send(()) {
+                panic!("Receiver dropped");
             }
         }
         if let Some(_proxy) = self.proxy.take() {
-           // proxy will get dropped here.
+            // proxy will get dropped here.
         }
 
         if let Some(fd) = self.client_fd.take() {
             unsafe {
-            let _fd = UnixStream::from_raw_fd(fd);
-            // let it go out of scope
+                let _fd = UnixStream::from_raw_fd(fd);
+                // let it go out of scope
             }
         }
 
         if let Some(fd) = self.server_fd.take() {
             unsafe {
-            let _fd = UnixStream::from_raw_fd(fd);
-            // let it go out of scope
+                let _fd = UnixStream::from_raw_fd(fd);
+                // let it go out of scope
             }
         }
     }
@@ -103,8 +103,7 @@ pub struct Context {
 
 impl Context {
     pub fn get_ref(&self, node_index: &NodeIndex) -> RuntimeEntityReference {
-
-       // let client = ApplicationInterfaceAsyncRPCClient::new(BincodeAsyncClientTransport::new());
+        // let client = ApplicationInterfaceAsyncRPCClient::new(BincodeAsyncClientTransport::new());
 
         self.children[*node_index].clone()
     }
@@ -135,47 +134,45 @@ pub type RuntimeEntityReference = std::sync::Arc<std::sync::RwLock<RuntimeEntity
 pub type ContextReference = std::sync::Arc<std::sync::RwLock<Context>>;
 
 impl<'a> Context {
-
     // Create empty context
     pub fn new() -> Context {
         Context {
-            children : Graph::new(),
+            children: Graph::new(),
         }
     }
 
-    // Add a service from an ApplicationConfiguration        
-    pub fn add_service(&mut self, config : &dyn ApplicationConfig) {
-        let service : Service = config.into();
+    // Add a service from an ApplicationConfiguration
+    pub fn add_service(&mut self, config: &dyn ApplicationConfig) {
+        let service: Service = config.into();
         let spawn = SpawnedService {
-            service : service,
-            child : None,
-            start_count : 0,
-            state : RunningState::Unknown,
-            exit_status : None,
-            uuid : None,
-            proxy : None,
-            client_fd : None,
-            server_fd : None,
-            appserver_terminate_handler : None,
+            service: service,
+            child: None,
+            start_count: 0,
+            state: RunningState::Unknown,
+            exit_status: None,
+            uuid: None,
+            proxy: None,
+            client_fd: None,
+            server_fd: None,
+            appserver_terminate_handler: None,
         };
 
-        self.children.add_node(std::sync::Arc::new(std::sync::RwLock::new(
-            RuntimeEntity::Service(spawn),
-        )));
-
+        self.children
+            .add_node(std::sync::Arc::new(std::sync::RwLock::new(
+                RuntimeEntity::Service(spawn),
+            )));
     }
 
-    pub fn add_unit(&mut self, unit : Unit) {
+    pub fn add_unit(&mut self, unit: Unit) {
         let spawn = SpawnedUnit {
             unit: unit,
             status: UnitStatus::Unknown,
         };
         self.children
-        .add_node(std::sync::Arc::new(std::sync::RwLock::new(
-            RuntimeEntity::Unit(spawn),
-        )));
+            .add_node(std::sync::Arc::new(std::sync::RwLock::new(
+                RuntimeEntity::Unit(spawn),
+            )));
     }
-    
 
     /// convert the Config structure to a context structure. The context structure includes
     /// a graph of the services.
@@ -193,9 +190,9 @@ impl<'a> Context {
                     exit_status: None,
                     uuid: None,
                     proxy: None,
-                    client_fd : None,
-                    server_fd : None,
-                    appserver_terminate_handler : None,
+                    client_fd: None,
+                    server_fd: None,
+                    appserver_terminate_handler: None,
                 };
                 context
                     .children
@@ -296,9 +293,7 @@ impl<'a> Context {
                             let it_depends: Vec<NodeIndex> = self
                                 .children
                                 .node_indices()
-                                .filter(|&n| {
-                                    n != node_index && dep == &self.get_name(n).unwrap()
-                                })
+                                .filter(|&n| n != node_index && dep == &self.get_name(n).unwrap())
                                 .collect();
                             for d in it_depends {
                                 //println!("{} depends on {:?}",&context.children[node_index].service.name,d);
@@ -313,9 +308,7 @@ impl<'a> Context {
                             let it_depends: Vec<NodeIndex> = self
                                 .children
                                 .node_indices()
-                                .filter(|&n| {
-                                    n != node_index && dep == &self.get_name(n).unwrap()
-                                })
+                                .filter(|&n| n != node_index && dep == &self.get_name(n).unwrap())
                                 .collect();
                             for d in it_depends {
                                 //println!("{} depends on {:?}",&context.children[node_index].service.name,d);
@@ -343,7 +336,6 @@ impl<'a> Context {
             }
         }
     }
-
 
     /// Get the index of services that are started initially. These are the services that
     /// do not depend on any other services or any other triggers

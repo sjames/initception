@@ -7,9 +7,9 @@ extern crate toml;
 
 use serde::Deserialize;
 use std::fs;
-use std::path::{PathBuf,Path};
+use std::path::{Path, PathBuf};
 
-use crate::application::config::{ApplicationConfig, Application};
+use crate::application::config::{Application, ApplicationConfig};
 
 #[derive(Deserialize, Debug)]
 pub struct Config {
@@ -90,8 +90,8 @@ pub trait ServiceTrait<'a> {
     fn get_groups(&self) -> Option<&[u32]>;
     fn get_namespaces(&self) -> Option<&[Ns]>;
     fn get_workdir(&self) -> Option<&str>;
-    fn get_capabilities(&self)-> Option<&[Cap]>;
-    fn get_env(&self) -> Option<&[[&str;2]]>;
+    fn get_capabilities(&self) -> Option<&[Cap]>;
+    fn get_env(&self) -> Option<&[[&str; 2]]>;
     fn get_type(&self) -> Option<Type>;
 }
 
@@ -116,7 +116,7 @@ pub struct Service {
     pub r#type: Option<Type>,
     // set to true if this configuration is static. The executable path is not used
     #[serde(skip_serializing)]
-    pub is_static : bool,
+    pub is_static: bool,
 }
 
 impl Service {
@@ -178,37 +178,50 @@ pub fn load_config() -> Option<Config> {
 
 // Todo: The service struct stores copies. Check if this can be improved.
 impl From<&dyn ApplicationConfig> for Service {
-    fn from(cfg:&dyn ApplicationConfig) -> Self {
+    fn from(cfg: &dyn ApplicationConfig) -> Self {
         Service {
-            name : cfg.name().into(),
-            path : PathBuf::new(),
-            depends : Some(cfg.depends().iter().map(|d|String::from(*d)).collect()),
-            after : None,
-            start_params : Some(cfg.start_params().iter().map(|d|String::from(*d)).collect()),
-            restart_params : Some(cfg.restart_params().iter().map(|d|String::from(*d)).collect()),
-            restart : if let Some(restart) = cfg.restart_count() {
-                Some(Restart { count: restart.0, period_ms: restart.1})
-
-            } else { None},
-            class : cfg.class().map(|c| String::from(c)),
-            io_prio : cfg.io_prio().map(|c| String::from(c)),
-            uid : Some(cfg.uid()),
-            gid : Some(cfg.uid()),
-            groups : Some(cfg.groups().iter().map(|g|*g).collect()),
-            namespaces : Some(cfg.namespaces().iter().map(|n|n.clone()).collect()),
-            workdir : cfg.workdir().map(|w| String::from(w)),
-            capabilities : Some(cfg.capabilities().iter().map(|c|c.clone()).collect()),
-            env : {
-                let mut env = Vec::<[String;2]>::new();
+            name: cfg.name().into(),
+            path: PathBuf::new(),
+            depends: Some(cfg.depends().iter().map(|d| String::from(*d)).collect()),
+            after: None,
+            start_params: Some(
+                cfg.start_params()
+                    .iter()
+                    .map(|d| String::from(*d))
+                    .collect(),
+            ),
+            restart_params: Some(
+                cfg.restart_params()
+                    .iter()
+                    .map(|d| String::from(*d))
+                    .collect(),
+            ),
+            restart: if let Some(restart) = cfg.restart_count() {
+                Some(Restart {
+                    count: restart.0,
+                    period_ms: restart.1,
+                })
+            } else {
+                None
+            },
+            class: cfg.class().map(|c| String::from(c)),
+            io_prio: cfg.io_prio().map(|c| String::from(c)),
+            uid: Some(cfg.uid()),
+            gid: Some(cfg.uid()),
+            groups: Some(cfg.groups().iter().map(|g| *g).collect()),
+            namespaces: Some(cfg.namespaces().iter().map(|n| n.clone()).collect()),
+            workdir: cfg.workdir().map(|w| String::from(w)),
+            capabilities: Some(cfg.capabilities().iter().map(|c| c.clone()).collect()),
+            env: {
+                let mut env = Vec::<[String; 2]>::new();
                 for e in cfg.environment() {
-                    env.push([String::from(e[0]),String::from(e[1])]);
+                    env.push([String::from(e[0]), String::from(e[1])]);
                 }
                 Some(env)
             },
-            r#type : Some(Type::Notify),
+            r#type: Some(Type::Notify),
             // if created from ApplicationConfiguration, this is always static
-            is_static : true,
+            is_static: true,
         }
     }
 }
-

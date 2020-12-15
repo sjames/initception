@@ -1,17 +1,14 @@
+use std::env;
 use std::fs::File;
 use std::io::{Read, Write};
+use std::path::PathBuf;
 use ttrpc_codegen::Codegen;
 use ttrpc_codegen::Customize;
-use std::path::PathBuf;
-use std::env;
 
 fn main() {
-
     //let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
     let out_dir = "src/application/src_gen";
-    let protos = vec![
-        "src/protocols/application_interface.proto",
-    ];
+    let protos = vec!["src/protocols/application_interface.proto"];
 
     // Tell Cargo that if the .proto files changed, to rerun this build script.
     protos
@@ -29,5 +26,4 @@ fn main() {
         })
         .run()
         .expect("Gen async code failed.");
-
 }

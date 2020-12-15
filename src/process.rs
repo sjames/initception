@@ -13,8 +13,7 @@ use std::os::unix::net::UnixStream;
 
 use tracing::debug;
 
-
-fn create_self_command(name:&str) -> unshare::Command {
+fn create_self_command(name: &str) -> unshare::Command {
     let path = std::fs::read_link("/proc/self/exe").expect("Unable to read /proc/self/exe");
 
     let mut cmd = unshare::Command::new(&path);
@@ -29,7 +28,7 @@ pub fn launch_service(spawned_ref: RuntimeEntityReference) -> Result<(), nix::Er
 
     if let &mut RuntimeEntity::Service(spawn) = &mut entity {
         let service = &mut spawn.service;
-        let mut cmd = if service.is_static { 
+        let mut cmd = if service.is_static {
             create_self_command(&service.name)
         } else {
             unshare::Command::new(&service.path)
@@ -134,10 +133,9 @@ pub fn launch_service(spawned_ref: RuntimeEntityReference) -> Result<(), nix::Er
 
         let raw_fd = child_client_socket.into_raw_fd();
         spawn.server_fd = Some(my_client_sock.into_raw_fd());
-    
+
         cmd.env("NOTIFY_APP_CLIENT_FD", format!("{}", raw_fd));
         cmd.file_descriptor(raw_fd, Fd::inherit());
-
 
         //
         //
@@ -145,14 +143,17 @@ pub fn launch_service(spawned_ref: RuntimeEntityReference) -> Result<(), nix::Er
         let (mysock, childsocket) = match UnixStream::pair() {
             Ok((sock1, sock2)) => (sock1, sock2),
             Err(e) => {
-                panic!("Couldn't create a pair of sockets for app manager server: {:?}", e);
+                panic!(
+                    "Couldn't create a pair of sockets for app manager server: {:?}",
+                    e
+                );
             }
         };
-        
+
         // raw_fd goes to the child process
         let raw_fd = childsocket.into_raw_fd();
         spawn.client_fd = Some(mysock.into_raw_fd());
-    
+
         cmd.env("NOTIFY_APP_SERVER_FD", format!("{}", raw_fd));
         cmd.file_descriptor(raw_fd, Fd::inherit());
 
