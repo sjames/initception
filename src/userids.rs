@@ -69,8 +69,15 @@ impl Ids {
             "net_bw_stats" => Some((3006, 3006)),
             "net_bw_acct" => Some((3007, 3007)),
             "net_bt_stack" => Some((3008, 3008)),
+            "reserved1" => Some((3009, 3009)),
+            "reserved2" => Some((3010, 3010)),
+            "reserved3" => Some((3011, 3011)),
+            "reserved4" => Some((3012, 3012)),
+            "reserved5" => Some((3013, 3013)),
+            "reserved6" => Some((3014, 3014)),
             "nobody" => Some((9999, 9999)),
             _ => None,
         }
     }
 }
+

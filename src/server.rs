@@ -37,7 +37,6 @@ use ttrpc::r#async::Client;
 use ttrpc::r#async::Server;
 
 //use std::os::unix::io::FromRawFd;
-use std::os::unix::net::UnixStream;
 use std::os::unix::io::IntoRawFd;
 use std::sync::Arc;
 
