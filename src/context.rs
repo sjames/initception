@@ -15,18 +15,16 @@ use petgraph::prelude::NodeIndex;
 use petgraph::Direction;
 use petgraph::Graph;
 
-use crate::initrc::{load_config, Service, Unit, UnitType, ServiceType};
+use crate::initrc::{load_config, Service, ServiceType, Unit, UnitType};
 use crate::mount;
 use crate::network;
 use crate::process::launch_service;
-
 
 use std::os::unix::net::UnixStream;
 use tracing::{debug, info, warn};
 use unshare::ChildEvent;
 
 use crate::application::src_gen::application_interface_ttrpc::ApplicationServiceClient;
-
 
 use crate::application::config::ApplicationConfig;
 
@@ -84,7 +82,7 @@ impl RuntimeEntity {
         }
     }
 
-    pub fn set_service_proxy(&mut self, proxy : ApplicationServiceClient)  {
+    pub fn set_service_proxy(&mut self, proxy: ApplicationServiceClient) {
         match self {
             RuntimeEntity::Service(s) => s.proxy = Some(proxy),
             RuntimeEntity::Unit(_u) => panic!("Attempt to set proxy on Unit"),
@@ -97,7 +95,6 @@ impl RuntimeEntity {
             RuntimeEntity::Unit(_u) => panic!("Attempt to set proxy on Unit"),
         }
     }
-
 }
 
 #[derive(Debug)]
@@ -160,8 +157,6 @@ impl SpawnedService {
     pub fn get_service_type(&self) -> ServiceType {
         self.service.get_service_type()
     }
-
-    
 }
 pub struct Context {
     children: Graph<RuntimeEntityReference, u32>,

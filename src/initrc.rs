@@ -22,8 +22,8 @@ use serde::Deserialize;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::application::config::{ApplicationConfig};
 use crate::application::app;
+use crate::application::config::ApplicationConfig;
 #[derive(Deserialize, Debug)]
 pub struct Config {
     pub service: Vec<Option<Service>>,

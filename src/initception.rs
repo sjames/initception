@@ -28,18 +28,13 @@ use tracing::{debug, error, info};
 use rand::Rng;
 use rand_core::SeedableRng;
 
-
 // For rtnetlink
 //use tokio::stream::TryStreamExt;
 
-
-
-use crate::application::config::{ApplicationConfig};
+use crate::application::config::ApplicationConfig;
 use crate::common::*;
 use crate::context::{Context, ContextReference};
 use crate::device;
-
-
 
 use crate::server;
 use crate::sysfs_walker;
@@ -221,33 +216,30 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                     debug!("Pid {:?} has confirmed stop", id);
                 }),
                 TaskMessage::RequestLaunch(id) => {
-                    
                     let server_context = context.clone();
                     let (notify_type, name) = {
                         let context = cloned_context.read().unwrap();
-                        (context.is_notify_type(id),
-                        context.get_name(id))
+                        (context.is_notify_type(id), context.get_name(id))
                     };
                     let context = cloned_context.clone();
 
                     tokio::spawn(async move {
-                    
-                 
-                    //let service = context.get_service(id).unwrap();
-                    // setup the socket to wait for this process to connect
-                    if notify_type {
-                        let tx = tx.clone();
-                        tokio::spawn(async move {
-                            
-                            server::manage_a_service(server_context,tx, id).await;
-                        });
-                    }
-                    if let Err(err) = context.read().unwrap().launch_service(id) {
-                        //TODO: Handle error
-                        error!("Error launching service : {:?} due to {}", id, err);
-                    } else {
-                        debug!("launched service : {:?}", context.read().unwrap().get_name(id));
-                        tokio::spawn(async move {
+                        //let service = context.get_service(id).unwrap();
+                        // setup the socket to wait for this process to connect
+                        if notify_type {
+                            let tx = tx.clone();
+                            tokio::spawn(async move {
+                                server::manage_a_service(server_context, tx, id).await;
+                            });
+                        }
+                        if let Err(err) = context.read().unwrap().launch_service(id) {
+                            //TODO: Handle error
+                            error!("Error launching service : {:?} due to {}", id, err);
+                        } else {
+                            debug!(
+                                "launched service : {:?}",
+                                context.read().unwrap().get_name(id)
+                            );
                             let msg = if notify_type {
                                 TaskMessage::ProcessLaunched(id)
                             } else {
@@ -256,10 +248,9 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                             if let Err(_) = tx.send(msg) {
                                 panic!("Receiver dropped");
                             }
-                        });
-                    }
-                })}
-                ,
+                        }
+                    })
+                }
                 TaskMessage::UeventReady => tokio::spawn(async move {
                     debug!("Uevent processing is ready");
                     if let Err(_) = sysfs_walker::launch_sysfs_walker() {
@@ -269,19 +260,20 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                 TaskMessage::DeviceChanged(info) => {
                     let context = cloned_context.clone();
                     tokio::spawn(async move {
-                    match info {
-                        DeviceChangeInfo::Added(dev) => {
-                            info!("ADD:{}", dev);
-                            if let Ok(index) = Context::do_unit(context.clone(), dev).await {
-                                if let Err(_) = tx.send(TaskMessage::UnitSuccess(index)) {
-                                    panic!("Receiver dropped");
+                        match info {
+                            DeviceChangeInfo::Added(dev) => {
+                                info!("ADD:{}", dev);
+                                if let Ok(index) = Context::do_unit(context.clone(), dev).await {
+                                    if let Err(_) = tx.send(TaskMessage::UnitSuccess(index)) {
+                                        panic!("Receiver dropped");
+                                    }
                                 }
                             }
+                            DeviceChangeInfo::Removed(dev) => info!("REMOVE:{}", dev),
+                            DeviceChangeInfo::Changed(dev) => info!("CHANGED:{}", dev),
                         }
-                        DeviceChangeInfo::Removed(dev) => info!("REMOVE:{}", dev),
-                        DeviceChangeInfo::Changed(dev) => info!("CHANGED:{}", dev),
-                    }
-                })},
+                    })
+                }
                 TaskMessage::UnitSuccess(unit_index) => tokio::spawn(async move {
                     debug!("Unit success for {:?}", unit_index);
                     let deps = cloned_context

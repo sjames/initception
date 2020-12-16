@@ -13,7 +13,6 @@
 
 use std::time::Duration;
 
-
 use tokio::stream::StreamExt;
 use tokio::sync::oneshot::channel as oneshot_channel;
 use tokio::sync::oneshot::Sender;
@@ -21,10 +20,8 @@ use tokio::time::timeout;
 
 use tracing::{debug, error, info};
 
-
 use crate::common::*;
-use crate::context::{RuntimeEntityReference, ServiceIndex, ContextReference};
-
+use crate::context::{ContextReference, RuntimeEntityReference, ServiceIndex};
 
 use crate::application::src_gen::application_interface;
 use crate::application::src_gen::application_interface_ttrpc;
@@ -40,8 +37,8 @@ use ttrpc::r#async::Server;
 use std::os::unix::io::IntoRawFd;
 use std::sync::Arc;
 
-use crate::servers::lifecycle::LifecycleServerImpl;
 use crate::initrc;
+use crate::servers::lifecycle::LifecycleServerImpl;
 
 struct ServiceManager {
     inner: InnerReference,
@@ -168,7 +165,7 @@ pub async fn manage_a_service(
     info!("App manager server");
 
     let context = orig_context.clone();
-   
+
     let service_type = context.read().unwrap().get_service(service_index).unwrap();
     let service_type = service_type.read().unwrap().is_service();
 
@@ -197,38 +194,38 @@ pub async fn manage_a_service(
             orig_context,
             tx_arc,
             service_index,
-        )) as Box<dyn application_interface_ttrpc::LifecycleServer + Send + Sync>;
+        ))
+            as Box<dyn application_interface_ttrpc::LifecycleServer + Send + Sync>;
         let service = Arc::new(service);
         let service = application_interface_ttrpc::create_lifecycle_server(service);
         Some(service)
-    } else { None};
+    } else {
+        None
+    };
 
-    let mut server =  {
+    let mut server = {
         let runtime_entity = context.read().unwrap().get_service(service_index).unwrap();
         let mut runtime_entity = runtime_entity.write();
         let runtime_entity = runtime_entity.as_deref_mut().unwrap();
         if let Some(fd) = runtime_entity.take_server_fd() {
-                Some((
-                    {
-                        let server = Server::new().register_service(service).set_domain_unix();
-                        // if lifecycle server exists, also register its methods
-                        if let Some(lifecycle_server) = lifecycle_server {
-                             server.register_service(lifecycle_server)
-                        } else {
-                            server
-                        }
-                        
-                    },
-                    fd,
-                ))
+            Some((
+                {
+                    let server = Server::new().register_service(service).set_domain_unix();
+                    // if lifecycle server exists, also register its methods
+                    if let Some(lifecycle_server) = lifecycle_server {
+                        server.register_service(lifecycle_server)
+                    } else {
+                        server
+                    }
+                },
+                fd,
+            ))
         } else {
             None
         }
-
     };
 
-    if let Some((mut server,socket)) = server
-    {
+    if let Some((mut server, socket)) = server {
         match server.start_single(socket).await {
             Ok(_) => {
                 info!("Server started normally");
@@ -236,7 +233,7 @@ pub async fn manage_a_service(
                 let runtime_entity = context.read().unwrap();
                 let runtime_entity = runtime_entity.get_service(service_index).unwrap();
                 let runtime_entity = runtime_entity.write();
-                if let Ok(mut runtime_entity)  = runtime_entity {
+                if let Ok(mut runtime_entity) = runtime_entity {
                     runtime_entity.set_terminate_signal_channel(app_server_terminate_tx)
                 }
             }
@@ -246,38 +243,33 @@ pub async fn manage_a_service(
         }
 
         // wait for a "reasonable time" for the application to connect back.  The application must
-    // load the server before connecting back so the client we launch here does not fail.
-    if let Err(_) = timeout(Duration::from_millis(2000), app_running_signal_rx).await {
-        error!("Application did not connect within 2000 milliseconds");
-    } else {
-        // Application connected. Create the proxy
-        let runtime_entity = context.read().unwrap().get_service(service_index).unwrap();
-        let mut runtime_entity = runtime_entity.write();
-        let runtime_entity = runtime_entity.as_deref_mut().unwrap();
+        // load the server before connecting back so the client we launch here does not fail.
+        if let Err(_) = timeout(Duration::from_millis(2000), app_running_signal_rx).await {
+            error!("Application did not connect within 2000 milliseconds");
+        } else {
+            // Application connected. Create the proxy
+            let runtime_entity = context.read().unwrap().get_service(service_index).unwrap();
+            let mut runtime_entity = runtime_entity.write();
+            let runtime_entity = runtime_entity.as_deref_mut().unwrap();
 
-        if let Some(fd) = runtime_entity.take_server_fd() {
-            runtime_entity.set_service_proxy(ApplicationServiceClient::new(Client::new(fd.into_raw_fd())));
-        }
-
-    }
-
-    // cleanup when the application has terminated
-    match app_server_terminate_rx.await {
-        Ok(_) => {
-            debug!("App server received termination message");
-            if let Err(_) = server.shutdown().await {
-                error!("App server shutdown failure");
+            if let Some(fd) = runtime_entity.take_server_fd() {
+                runtime_entity.set_service_proxy(ApplicationServiceClient::new(Client::new(
+                    fd.into_raw_fd(),
+                )));
             }
         }
-        Err(_) => {
-            panic!("App server terminate channel error");
+
+        // cleanup when the application has terminated
+        match app_server_terminate_rx.await {
+            Ok(_) => {
+                debug!("App server received termination message");
+                if let Err(_) = server.shutdown().await {
+                    error!("App server shutdown failure");
+                }
+            }
+            Err(_) => {
+                panic!("App server terminate channel error");
+            }
         }
     }
-
-
-
-
-    }
-
-    
 }

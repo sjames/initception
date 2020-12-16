@@ -15,8 +15,8 @@
 ///
 use crate::context::{ContextReference, RuntimeEntity, ServiceIndex, UnitStatus};
 use crate::initrc::{Unit, UnitType};
-use ipnetwork::{IpNetwork};
-use rtnetlink::{new_connection};
+use ipnetwork::IpNetwork;
+use rtnetlink::new_connection;
 use tokio::io::{self, AsyncBufReadExt, ReadHalf};
 use tracing::{debug, error, info, warn};
 
