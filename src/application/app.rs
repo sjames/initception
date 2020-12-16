@@ -55,6 +55,9 @@ pub fn get_server_fd() -> Result<i32, Box<dyn Error>> {
 pub const NOTIFY_APP_CLIENT_FD: &str = "NOTIFY_APP_CLIENT_FD";
 pub const NOTIFY_APP_SERVER_FD: &str = "NOTIFY_APP_SERVER_FD";
 
+// Special names for applications
+pub const APPNAME_LIFECYCLE_MANAGER: &str = "lifecycle.manager";
+
 // Application entry
 
 pub struct ApplicationClient {

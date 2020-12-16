@@ -23,7 +23,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::application::config::{ApplicationConfig};
-
+use crate::application::app;
 #[derive(Deserialize, Debug)]
 pub struct Config {
     pub service: Vec<Option<Service>>,
@@ -132,6 +132,11 @@ pub struct Service {
     pub is_static: bool,
 }
 
+pub enum ServiceType {
+    Normal,
+    LifecycleManager,
+}
+
 impl Service {
     pub fn is_notify_type(&self) -> bool {
         if let Some(t) = &self.r#type {
@@ -140,6 +145,15 @@ impl Service {
             }
         } else {
             false
+        }
+    }
+
+    /// Some services have special privileges. These services are
+    /// identified by special prefixes in their names.
+    pub fn get_service_type(&self) -> ServiceType {
+        match self.name.as_str() {
+            app::APPNAME_LIFECYCLE_MANAGER => ServiceType::LifecycleManager,
+            _ => ServiceType::Normal,
         }
     }
 }

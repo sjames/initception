@@ -15,7 +15,7 @@ use petgraph::prelude::NodeIndex;
 use petgraph::Direction;
 use petgraph::Graph;
 
-use crate::initrc::{load_config, Service, Unit, UnitType};
+use crate::initrc::{load_config, Service, Unit, UnitType, ServiceType};
 use crate::mount;
 use crate::network;
 use crate::process::launch_service;
@@ -38,14 +38,14 @@ pub enum RuntimeEntity {
 }
 
 impl RuntimeEntity {
-    pub fn is_service(&self) -> bool {
-        match *self {
-            RuntimeEntity::Service(_) => true,
-            _ => false,
+    pub fn is_service(&self) -> Option<ServiceType> {
+        match self {
+            RuntimeEntity::Service(s) => Some(s.get_service_type()),
+            _ => None,
         }
     }
     pub fn is_unit(&self) -> bool {
-        match *self {
+        match self {
             RuntimeEntity::Unit(_) => true,
             _ => false,
         }
@@ -70,6 +70,7 @@ impl RuntimeEntity {
             RuntimeEntity::Unit(_u) => None,
         }
     }
+
 }
 
 #[derive(Debug)]
@@ -128,6 +129,12 @@ impl SpawnedService {
     pub fn get_last_watchdog(&self) -> Option<Instant> {
         self.last_watchdog.clone()
     }
+
+    pub fn get_service_type(&self) -> ServiceType {
+        self.service.get_service_type()
+    }
+
+    
 }
 pub struct Context {
     children: Graph<RuntimeEntityReference, u32>,
@@ -438,7 +445,7 @@ impl<'a> Context {
             .neighbors_directed(index, Direction::Incoming)
             .filter(|i| {
                 let entity: &RuntimeEntity = &self.children[*i].read().unwrap();
-                entity.is_service()
+                entity.is_service().is_some()
             })
             .collect()
     }

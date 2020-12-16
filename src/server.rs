@@ -40,6 +40,9 @@ use ttrpc::r#async::Server;
 use std::os::unix::io::IntoRawFd;
 use std::sync::Arc;
 
+use crate::servers::lifecycle::LifecycleServerImpl;
+use crate::initrc;
+
 struct ServiceManager {
     inner: InnerReference,
 }
@@ -159,7 +162,7 @@ pub async fn manage_a_service(
 ) {
     info!("App manager server");
 
-    let tx_arc = std::sync::Arc::new(std::sync::Mutex::new(tx));
+    let tx_arc = std::sync::Arc::new(std::sync::Mutex::new(tx.clone()));
 
     let (app_running_signal_tx, app_running_signal_rx) = oneshot_channel::<()>();
 
@@ -177,14 +180,37 @@ pub async fn manage_a_service(
     let service = Arc::new(service);
     let service = application_interface_ttrpc::create_application_manager(service);
 
-    //let mut server = Server::new().bind(&socket_name).unwrap().register_service(service);
+    // If the service is a Lifecycle manager, then launch the server for it.
+    let lifecycle_server = if let Some(initrc::ServiceType::LifecycleManager) = client_spawnref.read().unwrap().is_service() {
+        // channel to communicate with the initception main loop
+        let tx_arc = std::sync::Arc::new(std::sync::Mutex::new(tx.clone()));
+        let spawnref = client_spawnref.clone();
+
+        let service = Box::new(LifecycleServerImpl::new(
+            spawnref,
+            tx_arc,
+            service_index,
+        )) as Box<dyn application_interface_ttrpc::LifecycleServer + Send + Sync>;
+        let service = Arc::new(service);
+        let service = application_interface_ttrpc::create_lifecycle_server(service);
+        Some(service)
+    } else { None};
 
     let (mut server, socket) = if let Ok(context) = client_spawnref.write().as_deref_mut() {
         match context {
             RuntimeEntity::Service(s) => {
                 if let Some(fd) = s.server_fd.take() {
                     (
-                        Server::new().register_service(service).set_domain_unix(),
+                        {
+                            let server = Server::new().register_service(service).set_domain_unix();
+                            // if lifecycle server exists, also register its methods
+                            if let Some(lifecycle_server) = lifecycle_server {
+                                 server.register_service(lifecycle_server)
+                            } else {
+                                server
+                            }
+                            
+                        },
                         fd,
                     )
                 } else {

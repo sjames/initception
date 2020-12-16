@@ -21,6 +21,17 @@ service ApplicationService {
     rpc stop(StopRequest) returns (StopResponse);
     rpc session_changed(SessionChangedRequest) returns (SessionChangedResponse);
     rpc property_changed(PropertyChangedRequest) returns (PropertyChangedResponse);
+    rpc event(EventRequest) returns (EventResponse);
+}
+
+message EventRequest {
+    string key = 1;
+    string value = 2;
+}
+
+message EventResponse {
+    string key = 1;
+    string value = 2;
 }
 
 enum ReturnStatus {
@@ -144,4 +155,110 @@ service ApplicationManager {
     rpc get_property(GetPropertyRequest) returns (GetPropertyResponse);
     rpc set_property(SetPropertyRequest) returns (SetPropertyResponse);
     rpc add_property_filter(AddPropertyFilterRequest) returns (AddPropertyFilterResponse);
+}
+
+/*
+ Interface used by the startup controller. The startup controller is an application
+ with special privileges.
+*/
+service LifecycleServer {
+    rpc get_applications(GetApplicationsRequest) returns (GetApplicationsResponse);
+    rpc get_application_status(GetApplicationStatusRequest) returns (GetApplicationStatusResponse);
+    rpc start_application(StartApplicationRequest) returns (StartApplicationResponse);
+    rpc restart_application(RestartApplicationRequest) returns (RestartApplicationResponse);
+    rpc pause_application(PauseApplicationRequest) returns (PauseApplicationResponse);
+    rpc stop_application(StopApplicationRequest) returns (StopApplicationResponse);
+    rpc prepare_system_freeze(PrepareFreezeRequest) returns (PrepareFreezeResponse);
+    rpc prepare_system_shutdown(PrepareShutdownRequest) returns (PrepareShutdownResponse);
+    rpc shutdown_system(ShutdownRequest) returns (ShutdownResponse);
+}
+
+message GetApplicationsRequest {
+
+}
+
+message GetApplicationsResponse {
+    repeated string name = 1;
+}
+
+message GetApplicationStatusRequest {
+    string name = 1;
+}
+
+enum ApplicationStatus {
+    Unknown = 0;
+    Stopped = 1;
+    Running = 2;
+    Paused  = 3;
+}
+
+message GetApplicationStatusResponse {
+    ApplicationStatus status = 1;
+}
+
+message StartApplicationRequest {
+    string name = 1;
+}
+
+message StartApplicationResponse {
+    ReturnStatus status = 1;
+    uint32 time_taken_ms = 2;
+}
+
+message RestartApplicationRequest {
+    string name = 1;
+}
+
+message RestartApplicationResponse {
+    ReturnStatus status = 1;
+    uint32 time_taken_ms = 2;
+}
+
+message PauseApplicationRequest {
+    string name = 1;
+}
+
+message PauseApplicationResponse {
+    ReturnStatus status = 1;
+    uint32 time_taken_ms = 2;
+}
+
+message StopApplicationRequest {
+    string name = 1;
+}
+
+message StopApplicationResponse {
+    ReturnStatus status = 1;
+    uint32 time_taken_ms = 2;
+}
+
+enum ShutdownType {
+    Normal = 0;
+    Fast = 1;
+    Emergency = 2;
+}
+
+message PrepareFreezeRequest {
+    ShutdownType shutdown_type = 1;
+}
+
+message PrepareFreezeResponse {
+    ReturnStatus status = 1;
+}
+
+message PrepareShutdownRequest {
+    ShutdownType shutdown_type = 1;
+}
+
+message PrepareShutdownResponse {
+    ReturnStatus status = 1;
+}
+
+message ShutdownRequest {
+    ReturnStatus status = 1;
+}
+
+
+message ShutdownResponse {
+    ReturnStatus status = 1;
 }

@@ -37,6 +37,7 @@ pub mod mount;
 pub mod network;
 pub mod process;
 pub mod server;
+pub mod servers;
 pub mod sysfs_walker;
 mod ueventd;
 pub mod userids;
