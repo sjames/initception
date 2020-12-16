@@ -10,7 +10,7 @@ use tracing::{debug, error, info};
 
 
 use crate::common::*;
-use crate::context::{RuntimeEntityReference, ServiceIndex};
+use crate::context::{RuntimeEntityReference, ServiceIndex, ContextReference};
 
 
 use crate::application::src_gen::application_interface;
@@ -35,19 +35,19 @@ pub struct LifecycleServerImpl {
 type InnerReference = std::sync::Arc<std::sync::RwLock<Inner>>;
 type InnerTxReference = std::sync::Arc<std::sync::Mutex<SyncTxHandle>>;
 struct Inner {
-    spawnref: RuntimeEntityReference, // reference to the runtime entity for this server
+    context: ContextReference, // reference to the runtime entity for this server
     tx: InnerTxReference,
     service_index: ServiceIndex,
 }
 
 impl Inner {
     fn new(
-        spawnref: RuntimeEntityReference,
+        context: ContextReference,
         tx: InnerTxReference,
         service_index: ServiceIndex,
     ) -> Self {
         Inner {
-            spawnref,
+            context,
             tx,
             service_index,
         }
@@ -56,13 +56,13 @@ impl Inner {
 
 impl LifecycleServerImpl {
     pub fn new(
-        spawnref: RuntimeEntityReference,
+        context: ContextReference,
         tx: InnerTxReference,
         service_index: ServiceIndex,
     ) -> Self {
         LifecycleServerImpl {
             inner: Arc::new(std::sync::RwLock::new(Inner::new(
-                spawnref,
+                context,
                 tx,
                 service_index,
             ))),

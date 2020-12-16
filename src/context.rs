@@ -70,6 +70,33 @@ impl RuntimeEntity {
             RuntimeEntity::Unit(_u) => None,
         }
     }
+    pub fn take_client_fd(&mut self) -> Option<UnixStream> {
+        match self {
+            RuntimeEntity::Service(s) => s.client_fd.take(),
+            RuntimeEntity::Unit(_u) => None,
+        }
+    }
+
+    pub fn take_server_fd(&mut self) -> Option<UnixStream> {
+        match self {
+            RuntimeEntity::Service(s) => s.server_fd.take(),
+            RuntimeEntity::Unit(_u) => None,
+        }
+    }
+
+    pub fn set_service_proxy(&mut self, proxy : ApplicationServiceClient)  {
+        match self {
+            RuntimeEntity::Service(s) => s.proxy = Some(proxy),
+            RuntimeEntity::Unit(_u) => panic!("Attempt to set proxy on Unit"),
+        }
+    }
+
+    pub fn set_terminate_signal_channel(&mut self, channel: tokio::sync::oneshot::Sender<()>) {
+        match self {
+            RuntimeEntity::Service(s) => s.appserver_terminate_handler = Some(channel),
+            RuntimeEntity::Unit(_u) => panic!("Attempt to set proxy on Unit"),
+        }
+    }
 
 }
 
