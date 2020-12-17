@@ -214,10 +214,25 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                     debug!("Pid {:?} has confirmed stop", id);
                 }),
                 // TODO: Handle stop
-                TaskMessage::RequestStop(id, mut notify) => tokio::spawn(async move {
-                    debug!("Uevent processing is ready");
+                TaskMessage::RequestStop(id, mut notify) => {
+                    let service = {
+                        let context = context.clone();
+                        let context = context.read().unwrap();    
+                        let service = context.get_service(id).unwrap();
+                        
+                        service
+                    };
                     
-                }),
+                        tokio::spawn(async move {
+                            let service = service.clone();
+                            let service = service.write().unwrap();
+                            debug!("Request stop for {:?}",id);
+                            //service.send_stop_event().await
+                        })
+
+                        //let res = context.launch_service(id);
+                    
+                    },
                 TaskMessage::RequestLaunch(id, mut notify) => {
                     let server_context = context.clone();
                     let (notify_type, name) = {

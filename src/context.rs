@@ -18,13 +18,14 @@ use petgraph::Graph;
 use crate::initrc::{load_config, Service, ServiceType, Unit, UnitType};
 use crate::mount;
 use crate::network;
-use crate::process::launch_service;
+use crate::process::{launch_service, stop_service};
 
 use std::os::unix::net::UnixStream;
 use tracing::{debug, info, warn};
 use unshare::ChildEvent;
 
 use crate::application::src_gen::application_interface_ttrpc::ApplicationServiceClient;
+use crate::application::src_gen::application_interface;
 
 use crate::application::config::ApplicationConfig;
 
@@ -111,6 +112,18 @@ impl RuntimeEntity {
     pub fn set_terminate_signal_channel(&mut self, channel: tokio::sync::oneshot::Sender<()>) {
         match self {
             RuntimeEntity::Service(s) => s.appserver_terminate_handler = Some(channel),
+            RuntimeEntity::Unit(_u) => panic!("Attempt to set proxy on Unit"),
+        }
+    }
+
+    pub async fn send_stop_event(&mut self) {
+        match self {
+            RuntimeEntity::Service(s) => {
+                if let Some(proxy) = &mut s.proxy {
+                    let req = application_interface::StopRequest::new();
+                    proxy.stop(&req, 0).await;
+                }
+            },
             RuntimeEntity::Unit(_u) => panic!("Attempt to set proxy on Unit"),
         }
     }
@@ -249,6 +262,14 @@ pub enum RunningState {
     Stopped,
     Killed,
     Zombie,
+}
+
+impl RunningState {
+    pub fn is_alive(&self) -> bool {
+        *self == RunningState::Running || 
+        *self == RunningState::Paused ||
+        *self == RunningState::WaitForConnect
+    }
 }
 
 pub type ServiceIndex = NodeIndex;
@@ -583,6 +604,10 @@ impl<'a> Context {
         launch_service(self.children[index].clone()) // launch_service does the checks.
     }
 
+    pub fn kill_service(&self, index: ServiceIndex) -> Result<(), nix::Error> {
+        stop_service(self.children[index].clone()) // launch_service does the checks.
+    }
+    
     fn set_state(&mut self, index: ServiceIndex, state: RunningState) {
         let entity: &mut RuntimeEntity = &mut self.children[index].write().unwrap();
         if let RuntimeEntity::Service(service) = entity {

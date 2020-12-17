@@ -36,6 +36,28 @@ fn create_self_command(name: &str) -> unshare::Command {
     cmd
 }
 
+pub fn stop_service(spawned_ref: RuntimeEntityReference) -> Result<(), nix::Error> {
+    let mut entity: &mut RuntimeEntity = &mut spawned_ref.write().unwrap();
+    if let &mut RuntimeEntity::Service(spawn) = &mut entity {
+
+        if spawn.state.is_alive() {
+            if let Some(child) = &spawn.child {
+                // send sigint first, then SIGTERM
+                child.signal(unshare::Signal::SIGINT)
+                    .and_then(|_| child.kill())
+                    .map_err(|_| nix::Error::invalid_argument())
+            } else {
+                Err(nix::Error::invalid_argument())    
+            }
+        } else {
+            Err(nix::Error::invalid_argument())    
+        }
+    } else {
+        Err(nix::Error::invalid_argument())
+    }
+}
+
+
 /// launch a process, returining the Child structure for the newly
 /// launched child process
 pub fn launch_service(spawned_ref: RuntimeEntityReference) -> Result<(), nix::Error> {
