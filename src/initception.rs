@@ -16,7 +16,7 @@ extern crate unshare;
 
 use std;
 use std::error::Error;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 use tokio::signal::unix::{signal, SignalKind};
@@ -26,7 +26,7 @@ use tokio::time::delay_for;
 use tracing::{debug, error, info};
 //use uuid;
 use rand::Rng;
-use rand_core::SeedableRng;
+
 
 // For rtnetlink
 //use tokio::stream::TryStreamExt;
@@ -167,7 +167,7 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                     //network::configure_network_interface(ip, String::from("lo")).await
                     debug!("Loopback network set up (skipped)");
                 }),
-                TaskMessage::ProcessRunning(id,notify) => tokio::spawn(async move {
+                TaskMessage::ProcessRunning(id,_notify) => tokio::spawn(async move {
                     debug!("Process Running {:?}", id);
                     let deps = cloned_context.read().unwrap().get_immediate_dependants(id);
                     for dep in deps {
@@ -178,7 +178,7 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                         }
                     }
                 }),
-                TaskMessage::ProcessLaunched(id,mut notify) => tokio::spawn(async move {
+                TaskMessage::ProcessLaunched(id,_notify) => tokio::spawn(async move {
                     
                     debug!("Process launched {:?}", id);
                     let deps = cloned_context
@@ -207,10 +207,10 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                         });
                     }
                 }),
-                TaskMessage::ProcessPaused(id, notify) => tokio::spawn(async move {
+                TaskMessage::ProcessPaused(id, _notify) => tokio::spawn(async move {
                     debug!("Pid {:?} has confirmed pause", id);
                 }),
-                TaskMessage::ProcessStopped(id, notify) => tokio::spawn(async move {
+                TaskMessage::ProcessStopped(id, _notify) => tokio::spawn(async move {
                     debug!("Pid {:?} has confirmed stop", id);
                 }),
                 TaskMessage::RequestLaunch(id, mut notify) => {

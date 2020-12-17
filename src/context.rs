@@ -197,7 +197,7 @@ impl Context {
         let entity: &RuntimeEntity = &self.children[node_index].read().unwrap();
         match entity {
             RuntimeEntity::Service(service) => service.state == RunningState::Running || service.state == RunningState::WaitForConnect ,
-            RuntimeEntity::Unit(unit) => false,
+            RuntimeEntity::Unit(_unit) => false,
         }
     }
 

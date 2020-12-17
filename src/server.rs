@@ -25,7 +25,7 @@ use crate::context::{ContextReference, RuntimeEntityReference, ServiceIndex};
 
 use crate::application::src_gen::application_interface;
 use crate::application::src_gen::application_interface_ttrpc;
-use crate::context::RuntimeEntity;
+
 
 use crate::application::src_gen::application_interface_ttrpc::ApplicationServiceClient;
 use async_trait::async_trait;
@@ -203,7 +203,7 @@ pub async fn manage_a_service(
         None
     };
 
-    let mut server = {
+    let server = {
         let runtime_entity = context.read().unwrap().get_service(service_index).unwrap();
         let mut runtime_entity = runtime_entity.write();
         let runtime_entity = runtime_entity.as_deref_mut().unwrap();
