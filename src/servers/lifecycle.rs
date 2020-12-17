@@ -8,9 +8,9 @@ use std::time::Duration;
 
 
 use crate::common::*;
-use crate::context::{ContextReference, ServiceIndex};
+use crate::context::{ContextReference, ServiceIndex, RunningState};
 
-use crate::application::src_gen::application_interface;
+use crate::application::src_gen::application_interface::{self,ApplicationStatus};
 use crate::application::src_gen::application_interface_ttrpc;
 
 
@@ -85,12 +85,35 @@ impl application_interface_ttrpc::LifecycleServer for LifecycleServerImpl {
     async fn get_application_status(
         &self,
         _ctx: &ttrpc::r#async::TtrpcContext,
-        _req: application_interface::GetApplicationStatusRequest,
+        req: application_interface::GetApplicationStatusRequest,
     ) -> ttrpc::Result<application_interface::GetApplicationStatusResponse> {
-        Err(ttrpc::Error::RpcStatus(ttrpc::get_status(
-            ttrpc::Code::NOT_FOUND,
-            "/grpc.LifecycleServer/get_application_status is not supported".to_string(),
-        )))
+
+        let inner = self.inner.read().unwrap();
+        let context = inner.context.read().unwrap();
+        
+        if let Some(status) = context.get_service_status(req.get_name()) {
+
+            let mut response = application_interface::GetApplicationStatusResponse::default();
+            match status {
+                RunningState::Running => response.set_status(ApplicationStatus::Running),
+                RunningState::Stopped => response.set_status(ApplicationStatus::Stopped),
+                RunningState::Paused => response.set_status(ApplicationStatus::Paused),
+                RunningState::WaitForConnect => response.set_status(ApplicationStatus::Running),
+                RunningState::Killed => response.set_status(ApplicationStatus::Stopped),
+                RunningState::Unknown => response.set_status(ApplicationStatus::Stopped),
+                RunningState::Zombie => response.set_status(ApplicationStatus::Stopped),
+            }
+            
+            Ok(response)
+
+        } else {
+            Err(ttrpc::Error::RpcStatus(ttrpc::get_status(
+                ttrpc::Code::NOT_FOUND,
+                "/grpc.LifecycleServer/get_application_status is not supported".to_string(),
+            )))
+        }
+
+        
     }
     async fn start_application(
         &self,
@@ -171,12 +194,45 @@ impl application_interface_ttrpc::LifecycleServer for LifecycleServerImpl {
     async fn stop_application(
         &self,
         _ctx: &ttrpc::r#async::TtrpcContext,
-        _req: application_interface::StopApplicationRequest,
+        req: application_interface::StopApplicationRequest,
     ) -> ttrpc::Result<application_interface::StopApplicationResponse> {
-        Err(ttrpc::Error::RpcStatus(ttrpc::get_status(
-            ttrpc::Code::NOT_FOUND,
-            "/grpc.LifecycleServer/stop_application is not supported".to_string(),
-        )))
+
+        let inner = self.inner.read().unwrap();
+        let context = inner.context.read().unwrap();
+        let index = context.get_service_index(req.get_name());
+        let mut ret = application_interface::StopApplicationResponse::default();
+        if let Some(index) = index {
+                 if context.is_running(index) {
+                    let tx = inner.tx.lock().unwrap().clone();
+                    let (sender, rx) = std::sync::mpsc::channel::<TaskReply>();
+                    if let Err(_e) = tx.send(TaskMessage::RequestStop(index, Some(sender))) {
+                        panic!("receiver dropped");
+                    }
+
+                   // wait for completion
+                   if let Ok(recv) = rx.recv_timeout(Duration::from_millis(4000)) {
+                    let status = match recv {
+                        TaskReply::Ok => application_interface::ReturnStatus::OK,
+                        TaskReply::Error => application_interface::ReturnStatus::ERROR,
+                    };
+                    ret.set_status(status);
+                    Ok(ret)
+                } else {
+                    ret.set_status(application_interface::ReturnStatus::ERROR);
+                    Ok(ret)
+                }
+                    //Ok(application_interface::StopApplicationResponse::default())
+                 } else {
+                     Ok(application_interface::StopApplicationResponse::default())
+                 }
+        }
+        else {
+            Err(ttrpc::Error::RpcStatus(ttrpc::get_status(
+                ttrpc::Code::NOT_FOUND,
+                "/grpc.LifecycleServer/stop_application is not supported".to_string(),
+            )))
+        }
+        
     }
     async fn prepare_system_freeze(
         &self,

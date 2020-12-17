@@ -60,6 +60,13 @@ impl RuntimeEntity {
             RuntimeEntity::Unit(u) => {Some(&u.unit.name)},
         }
     }
+
+    pub fn get_service_status(&self) -> Option<RunningState> {
+        match self {
+            RuntimeEntity::Service(s) => Some(s.state),
+            RuntimeEntity::Unit(_u) => None,
+        }
+    }
     pub fn cleanup_resources(&mut self) {
         match self {
             RuntimeEntity::Service(s) => s.cleanup_resources(),
@@ -210,6 +217,17 @@ impl Context {
         names
     }
 
+    pub fn get_service_status(&self, name:&str) -> Option<RunningState> {
+        self.children.node_indices().find_map(|n| {
+            let node = self.children[n].read().unwrap();
+            if node.is_normal_service() && node.get_name().unwrap() == name {
+                node.get_service_status()
+            } else {
+                None
+            }
+        })
+    }
+
     pub fn get_service_index(&self, name: &str) -> Option<ServiceIndex> {
         self.children.node_indices().find_map(|n| {
             let node = self.children[n].read().unwrap();
@@ -222,11 +240,12 @@ impl Context {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum RunningState {
     Unknown,
     WaitForConnect, // waiting for process to connect and confirm running state
     Running,
+    Paused,
     Stopped,
     Killed,
     Zombie,

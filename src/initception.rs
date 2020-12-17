@@ -213,6 +213,11 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                 TaskMessage::ProcessStopped(id, _notify) => tokio::spawn(async move {
                     debug!("Pid {:?} has confirmed stop", id);
                 }),
+                // TODO: Handle stop
+                TaskMessage::RequestStop(id, mut notify) => tokio::spawn(async move {
+                    debug!("Uevent processing is ready");
+                    
+                }),
                 TaskMessage::RequestLaunch(id, mut notify) => {
                     let server_context = context.clone();
                     let (notify_type, name) = {

@@ -33,6 +33,7 @@ impl Default for TaskReply {
 }
 pub enum TaskMessage {
     RequestLaunch(ServiceIndex,Option<Sender<TaskReply>>),
+    RequestStop(ServiceIndex,Option<Sender<TaskReply>>),
     ProcessLaunched(ServiceIndex,Option<Sender<TaskReply>>),
     ProcessRunning(ServiceIndex,Option<Sender<TaskReply>>),
     ProcessPaused(ServiceIndex,Option<Sender<TaskReply>>),  // process has confirmed the pause
