@@ -41,7 +41,7 @@ pub fn do_mount(context: ContextReference, index: ServiceIndex) -> std::result::
 }
 
 fn parse_flags(flags: &str) -> Option<MsFlags> {
-    let mut msflags: MsFlags = MsFlags::MS_RDONLY ^ MsFlags::MS_RDONLY; // hmm.. is there no other way to initialize the flag?
+    let mut msflags: MsFlags =  unsafe {MsFlags::from_bits_unchecked(0)};//  MsFlags::MS_RDONLY ^ MsFlags::MS_RDONLY; // hmm.. is there no other way to initialize the flag?
     info!("msflags initialized to {:?}", msflags);
     for flag in flags.split(',') {
         let keyval: Vec<&str> = flag.split('=').collect();
@@ -76,7 +76,8 @@ fn parse_flags(flags: &str) -> Option<MsFlags> {
                     "RMT_MASK" => MsFlags::MS_RMT_MASK,
                     "MGC_VAL" => MsFlags::MS_MGC_VAL,
                     "MGC_MSK" => MsFlags::MS_MGC_MSK,
-                    _ => MsFlags::MS_RDONLY ^ MsFlags::MS_RDONLY,
+                    //_ => MsFlags::MS_RDONLY ^ MsFlags::MS_RDONLY,
+                    _ => unsafe{MsFlags::from_bits_unchecked(0)},
                 };
         } else {
             warn!("Ignoring malformed flags");
