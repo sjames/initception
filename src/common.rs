@@ -22,10 +22,7 @@ pub enum TaskReply {
 
 impl TaskReply {
     pub fn is_ok(&self) -> bool {
-        match  self {
-            TaskReply::Ok => true,
-            _ => false,
-        }
+        matches!(self, TaskReply::Ok)
     }
 }
 

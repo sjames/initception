@@ -16,7 +16,7 @@ use crate::application::src_gen::{application_interface, application_interface_t
 /// using ttrpc. These interfaces hide the use of ttrpc.
 ///
 use async_trait::async_trait;
-use ttrpc;
+
 use ttrpc::r#async::{Client, Server};
 
 use std::env;
@@ -32,7 +32,7 @@ fn get_fd(env_variable_key: &str) -> Result<i32, Box<dyn Error>> {
     if let Ok(address) = env::var(env_variable_key) {
         let raw_fd: i32 = address
             .parse()
-            .expect(&format!("Malformed socket number in {}", env_variable_key));
+            .unwrap_or_else(|_| panic!("Malformed socket number in {}", env_variable_key));
         //let std_stream = unsafe { UnixStream::from_raw_fd(raw_fd) };
         Ok(raw_fd)
     } else {
@@ -258,7 +258,7 @@ where
 pub async fn start_server(mut server: Server) -> Server {
     let server_fd = get_server_fd().unwrap();
     let stream = unsafe { UnixStream::from_raw_fd(server_fd) };
-    if let Err(e) = server.start_single(stream).await.map_err(|e| Box::new(e)) {
+    if let Err(e) = server.start_single(stream).await.map_err(Box::new) {
         panic!("Cannot start server due to: {}", e);
     }
     server

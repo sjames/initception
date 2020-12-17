@@ -66,7 +66,7 @@ fn launch_app(
     configs: &[&dyn ApplicationConfig],
     name: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    if let Some(cfg) = configs.into_iter().find(|c| {
+    if let Some(cfg) = configs.iter().find(|c| {
         println!("Searching:{}", c.name());
 
         c.name() == name

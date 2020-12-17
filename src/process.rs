@@ -196,7 +196,7 @@ pub fn launch_service(spawned_ref: RuntimeEntityReference) -> Result<(), nix::Er
             } else {
                 spawn.state = RunningState::Running;
             }
-            spawn.start_count = spawn.start_count + 1;
+            spawn.start_count += 1;
         }
 
         Ok(())

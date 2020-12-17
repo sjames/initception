@@ -51,10 +51,7 @@ impl RuntimeEntity {
     }
 
     pub fn is_unit(&self) -> bool {
-        match self {
-            RuntimeEntity::Unit(_) => true,
-            _ => false,
-        }
+        matches!(self, RuntimeEntity::Unit(_))
     }
 
     pub fn get_name(&self)  -> Option<&String> {
@@ -144,7 +141,7 @@ pub struct SpawnedService {
 impl SpawnedService {
     pub fn cleanup_resources(&mut self) {
         if let Some(sender) = self.appserver_terminate_handler.take() {
-            if let Err(_) = sender.send(()) {
+            if sender.send(()).is_err() {
                 panic!("Receiver dropped");
             }
         }
@@ -166,7 +163,7 @@ impl SpawnedService {
     }
 
     pub fn get_last_watchdog(&self) -> Option<Instant> {
-        self.last_watchdog.clone()
+        self.last_watchdog
     }
 
     pub fn get_service_type(&self) -> ServiceType {
@@ -252,7 +249,7 @@ impl<'a> Context {
     pub fn add_service(&mut self, config: &dyn ApplicationConfig) {
         let service: Service = config.into();
         let spawn = SpawnedService {
-            service: service,
+            service,
             child: None,
             start_count: 0,
             state: RunningState::Unknown,
@@ -273,7 +270,7 @@ impl<'a> Context {
 
     pub fn add_unit(&mut self, unit: Unit) {
         let spawn = SpawnedUnit {
-            unit: unit,
+            unit,
             status: UnitStatus::Unknown,
         };
         self.children
@@ -456,7 +453,7 @@ impl<'a> Context {
                 if let RuntimeEntity::Service(service) = entity {
                     match &service.service.depends {
                         None => true,
-                        Some(s) => s.len() == 0,
+                        Some(s) => s.is_empty(),
                     }
                 } else {
                     false
@@ -535,18 +532,16 @@ impl<'a> Context {
             if let RunningState::Running = service.state {
                 // bail as this should not happen
                 panic!("Unexpected to relaunch an already running service");
-            } else {
-                if let Some(restart) = &service.service.restart {
-                    if restart.count == 0 || restart.count > service.start_count {
-                        return Some(restart.period_ms);
-                    } else {
-                        // nothing to do, already restarted enough of times
-                        info!(
-                            "Service : {} restarted {} times. Not trying again",
-                            service.service.name, restart.count
-                        );
-                        return None;
-                    }
+            } else if let Some(restart) = &service.service.restart {
+                if restart.count == 0 || restart.count > service.start_count {
+                    return Some(restart.period_ms);
+                } else {
+                    // nothing to do, already restarted enough of times
+                    info!(
+                        "Service : {} restarted {} times. Not trying again",
+                        service.service.name, restart.count
+                    );
+                    return None;
                 }
             }
         } else {
@@ -609,7 +604,7 @@ impl<'a> Context {
                 let entity: &RuntimeEntity = &self.children[n].read().unwrap();
                 if let RuntimeEntity::Unit(unit) = entity {
                     if unit.unit.device == device {
-                        &types.push(unit.unit.r#type.clone());
+                        types.push(unit.unit.r#type.clone());
                         true
                     } else {
                         false
@@ -619,7 +614,7 @@ impl<'a> Context {
                 }
             })
             .collect::<Vec<ServiceIndex>>();
-        if units.len() == 0 {
+        if units.is_empty() {
             None
         } else if units.len() == 1 {
             Some((units[0], types[0].clone()))

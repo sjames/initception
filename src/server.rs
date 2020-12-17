@@ -29,7 +29,7 @@ use crate::application::src_gen::application_interface_ttrpc;
 
 use crate::application::src_gen::application_interface_ttrpc::ApplicationServiceClient;
 use async_trait::async_trait;
-use ttrpc;
+
 use ttrpc::r#async::Client;
 use ttrpc::r#async::Server;
 
@@ -62,7 +62,7 @@ impl Inner {
     ) -> Self {
         Inner {
             context,
-            tx: tx,
+            tx,
             service_index,
             sender: Some(sender),
         }
@@ -117,7 +117,7 @@ impl application_interface_ttrpc::ApplicationManager for ServiceManager {
                 let inner = self.inner.read().unwrap();
                 let tx = inner.tx.lock().unwrap();
 
-                if let Err(_) = tx.send(TaskMessage::ProcessPaused(inner.service_index, None)) {
+                if tx.send(TaskMessage::ProcessPaused(inner.service_index, None)).is_err() {
                     panic!("Receiver dropped");
                 }
                 Ok(application_interface::StateChangedResponse::default())
@@ -129,14 +129,14 @@ impl application_interface_ttrpc::ApplicationManager for ServiceManager {
 
                 // send this once
                 if let Some(tx) = inner.sender.take() {
-                    if let Err(_) = tx.send(()) {
+                    if tx.send(()).is_err() {
                         panic!("Receiver dropped");
                     }
                 }
 
                 let tx = inner.tx.lock().unwrap();
 
-                if let Err(_) = tx.send(TaskMessage::ProcessRunning(inner.service_index, None)) {
+                if tx.send(TaskMessage::ProcessRunning(inner.service_index, None)).is_err() {
                     panic!("Receiver dropped");
                 }
                 Ok(application_interface::StateChangedResponse::default())
@@ -145,7 +145,7 @@ impl application_interface_ttrpc::ApplicationManager for ServiceManager {
                 let inner = self.inner.read().unwrap();
                 let tx = inner.tx.lock().unwrap();
 
-                if let Err(_) = tx.send(TaskMessage::ProcessStopped(inner.service_index, None)) {
+                if tx.send(TaskMessage::ProcessStopped(inner.service_index, None)).is_err() {
                     panic!("Receiver dropped");
                 }
                 Ok(application_interface::StateChangedResponse::default())
@@ -244,7 +244,7 @@ pub async fn manage_a_service(
 
         // wait for a "reasonable time" for the application to connect back.  The application must
         // load the server before connecting back so the client we launch here does not fail.
-        if let Err(_) = timeout(Duration::from_millis(2000), app_running_signal_rx).await {
+        if timeout(Duration::from_millis(2000), app_running_signal_rx).await.is_err() {
             error!("Application did not connect within 2000 milliseconds");
         } else {
             // Application connected. Create the proxy
@@ -263,7 +263,7 @@ pub async fn manage_a_service(
         match app_server_terminate_rx.await {
             Ok(_) => {
                 debug!("App server received termination message");
-                if let Err(_) = server.shutdown().await {
+                if server.shutdown().await.is_err() {
                     error!("App server shutdown failure");
                 }
             }

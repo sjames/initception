@@ -46,8 +46,7 @@ fn parse_flags(flags: &str) -> Option<MsFlags> {
     for flag in flags.split(',') {
         let keyval: Vec<&str> = flag.split('=').collect();
         if keyval.len() == 2 {
-            msflags = msflags
-                | match keyval[0] {
+            msflags |= match keyval[0] {
                     "RDONLY" => MsFlags::MS_RDONLY,
                     "NOSUID" => MsFlags::MS_NOSUID,
                     "NODEV" => MsFlags::MS_NODEV,

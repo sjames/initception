@@ -14,7 +14,7 @@
 extern crate tokio;
 extern crate unshare;
 
-use std;
+
 use std::error::Error;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
@@ -132,12 +132,12 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
         let initial_services = context.read().unwrap().get_initial_services();
         let tx = tx_orig.clone();
         info!("asyn main started");
-        if let Err(_) = tx.send(TaskMessage::ConfigureNetworkLoopback) {
+        if tx.send(TaskMessage::ConfigureNetworkLoopback).is_err() {
             panic!("Receiver dropped when configuring network");
         }
 
         for service_idx in initial_services {
-            if let Err(_) = tx.send(TaskMessage::RequestLaunch(service_idx, None)) {
+            if tx.send(TaskMessage::RequestLaunch(service_idx, None)).is_err() {
                 panic!("Receiver dropped");
             }
         }
@@ -173,7 +173,7 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                     for dep in deps {
                         debug!("Launching dep {:?}", dep);
 
-                        if let Err(_) = tx.send(TaskMessage::RequestLaunch(dep,None)) {
+                        if tx.send(TaskMessage::RequestLaunch(dep,None)).is_err() {
                             panic!("Receiver dropped");
                         }
                     }
@@ -187,7 +187,7 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                         .get_immediate_dependant_services(id);
                     for dep in deps {
                         debug!("Launching dep {:?}", dep);
-                        if let Err(_) = tx.send(TaskMessage::RequestLaunch(dep, None)) {
+                        if tx.send(TaskMessage::RequestLaunch(dep, None)).is_err() {
                             panic!("Receiver dropped");
                         }
                     }
@@ -201,7 +201,7 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                     if let Some(time_ms) = cloned_context.read().unwrap().check_restart(id) {
                         tokio::spawn(async move {
                             delay_for(Duration::from_millis(time_ms as u64)).await;
-                            if let Err(_) = tx.send(TaskMessage::RequestLaunch(id, None)) {
+                            if tx.send(TaskMessage::RequestLaunch(id, None)).is_err() {
                                 panic!("Receiver dropped");
                             }
                         });
@@ -251,7 +251,7 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                             } else {
                                 TaskMessage::ProcessRunning(id, notify)
                             };
-                            if let Err(_) = tx.send(msg) {
+                            if tx.send(msg).is_err() {
                                 panic!("Receiver dropped");
                             }
                         }
@@ -259,7 +259,7 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                 }
                 TaskMessage::UeventReady => tokio::spawn(async move {
                     debug!("Uevent processing is ready");
-                    if let Err(_) = sysfs_walker::launch_sysfs_walker() {
+                    if sysfs_walker::launch_sysfs_walker().is_err() {
                         error!("Could not launch sysfs walker");
                     }
                 }),
@@ -270,7 +270,7 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                             DeviceChangeInfo::Added(dev) => {
                                 info!("ADD:{}", dev);
                                 if let Ok(index) = Context::do_unit(context.clone(), dev).await {
-                                    if let Err(_) = tx.send(TaskMessage::UnitSuccess(index)) {
+                                    if tx.send(TaskMessage::UnitSuccess(index)).is_err() {
                                         panic!("Receiver dropped");
                                     }
                                 }
@@ -289,7 +289,7 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                     for dep in deps {
                         debug!("Launching dep {:?}", dep);
 
-                        if let Err(_) = tx.send(TaskMessage::RequestLaunch(dep, None)) {
+                        if tx.send(TaskMessage::RequestLaunch(dep, None)).is_err() {
                             panic!("Receiver dropped");
                         }
                     }
@@ -301,7 +301,7 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
     // use the main task as a signal receiver
     let mut stream = signal(SignalKind::child()).unwrap();
     loop {
-        if let None = stream.recv().await {
+        if stream.recv().await.is_none() {
             error!("Fatal: cannot receive signals anymore");
             return Err(std::io::Error::last_os_error());
         } else {
@@ -309,7 +309,7 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
             let (killed, _stopped, _continued) =
                 cloned_context.write().unwrap().process_child_events();
             for pid in killed {
-                if let Err(_) = tx.send(TaskMessage::ProcessExited(pid, None)) {
+                if tx.send(TaskMessage::ProcessExited(pid, None)).is_err() {
                     panic!("Receiver dropped");
                 }
             }

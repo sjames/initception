@@ -18,7 +18,7 @@ use serde::Deserialize;
 use std::fs;
 use tracing::{debug, error, info, Level};
 
-const UEVENTD_CFG_LOCATION: &'static str = "/etc/ueventd.rc";
+const UEVENTD_CFG_LOCATION: &str = "/etc/ueventd.rc";
 
 #[derive(Deserialize, Debug)]
 pub struct UEventRcConfig {
@@ -39,12 +39,8 @@ pub struct Subsystem {
 /// I don't want to pull in the regex crate for this.
 fn is_match(pattern: &str, device: &str) -> bool {
     //if the pattern has a *, take it out.
-    let pattern: Vec<&str> = pattern.split("*").take(1).collect();
-    if device.contains(pattern[0]) {
-        true
-    } else {
-        false
-    }
+    let pattern: Vec<&str> = pattern.split('*').take(1).collect();
+    device.contains(pattern[0])
 }
 
 impl UEventRcConfig {

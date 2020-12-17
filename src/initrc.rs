@@ -231,14 +231,14 @@ impl From<&dyn ApplicationConfig> for Service {
             } else {
                 None
             },
-            class: cfg.class().map(|c| String::from(c)),
-            io_prio: cfg.io_prio().map(|c| String::from(c)),
+            class: cfg.class().map(String::from),
+            io_prio: cfg.io_prio().map(String::from),
             uid: Some(cfg.uid()),
             gid: Some(cfg.uid()),
-            groups: Some(cfg.groups().iter().map(|g| *g).collect()),
-            namespaces: Some(cfg.namespaces().iter().map(|n| n.clone()).collect()),
-            workdir: cfg.workdir().map(|w| String::from(w)),
-            capabilities: Some(cfg.capabilities().iter().map(|c| c.clone()).collect()),
+            groups: Some(cfg.groups().iter().copied().collect()),
+            namespaces: Some(cfg.namespaces().to_vec()),
+            workdir: cfg.workdir().map(String::from),
+            capabilities: Some(cfg.capabilities().to_vec()),
             env: {
                 let mut env = Vec::<[String; 2]>::new();
                 for e in cfg.environment() {

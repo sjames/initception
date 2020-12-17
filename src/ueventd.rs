@@ -15,7 +15,7 @@ use crate::common::{DeviceChangeInfo, TaskMessage};
 use crate::userids;
 use crate::uventrc_parser;
 
-use libc;
+
 use netlink_sys::{Protocol, Socket, SocketAddr};
 use nix::sys::stat::makedev;
 use nix::sys::stat::{mknod, mode_t, Mode, SFlag};
@@ -63,11 +63,7 @@ impl UEvent {
 
     pub fn is_subsystem(&self, name: &str) -> bool {
         if let Some(subsystem) = &self.maybe_subsystem {
-            if subsystem == name {
-                true
-            } else {
-                false
-            }
+            subsystem == name
         } else {
             false
         }
@@ -117,7 +113,7 @@ impl TryFrom<&[u8]> for UEvent {
         };
 
         for line in lines {
-            let tokens: Vec<&[u8]> = line.split(|b| *b == '=' as u8).collect();
+            let tokens: Vec<&[u8]> = line.split(|b| *b == b'=').collect();
             if tokens.len() == 2 {
                 // must have exactly two fields
                 let key = str::from_utf8(tokens[0]).unwrap();
@@ -143,11 +139,9 @@ impl TryFrom<&[u8]> for UEvent {
                     "MODALIAS" => uevent.maybe_modalias = Some(String::from(value)),
                     _ => {}
                 }
-            } else {
-                if tokens.len() > 2 {
-                    error!("number of fields != 2");
-                    error!("Line:{:?}", tokens);
-                }
+            } else if tokens.len() > 2 {
+                error!("number of fields != 2");
+                error!("Line:{:?}", tokens);
             }
         }
 
@@ -170,7 +164,7 @@ pub async fn uevent_main(tx: std::sync::mpsc::Sender<TaskMessage>) {
         } else {
             let mut buf = vec![0; 1024 * 1];
 
-            if let Err(_) = tx.send(TaskMessage::UeventReady) {
+            if tx.send(TaskMessage::UeventReady).is_err() {
                 panic!("Receiver dropped");
             }
             loop {
@@ -178,7 +172,7 @@ pub async fn uevent_main(tx: std::sync::mpsc::Sender<TaskMessage>) {
                     if let Ok(uevent) = UEvent::try_from(&buf[0..*n]) {
                         println!("{}", uevent);
                         if let Ok(changeinfo) = handle_uevent(uevent, &uevent_cfg) {
-                            if let Err(_) = tx.send(TaskMessage::DeviceChanged(changeinfo)) {
+                            if tx.send(TaskMessage::DeviceChanged(changeinfo)).is_err() {
                                 panic!("Receiver dropped");
                             }
                         }
@@ -208,11 +202,7 @@ fn handle_remove(_event: UEvent, _cfg: &UEventRcConfig) -> Result<DeviceChangeIn
 // returns true if the directory was created
 fn make_dir_if_needed(dev: &Path) -> bool {
     if let Some(parent) = dev.parent() {
-        if let Ok(()) = std::fs::create_dir_all(parent) {
-            true
-        } else {
-            false
-        }
+        matches!(std::fs::create_dir_all(parent), Ok(()))
     } else {
         false
     }
@@ -244,23 +234,21 @@ fn handle_add(event: UEvent, cfg: &UEventRcConfig) -> Result<DeviceChangeInfo, (
     } else {
         // deal with this as a normal device
         if let Some(devname) = &event.maybe_devname {
-            let devpath = String::from(format!("/dev/{}", devname));
+            let devpath = format!("/dev/{}", devname);
             let dev = Path::new(&devpath);
             //info!("devpath:{}", devpath);
             if let Some((mode, user, group)) = cfg.get_device_mode_and_ids(&devpath) {
-                if !dev.exists() {
-                    if make_dir_if_needed(&dev) {
-                        // reaching out to the unsafe function
-                        // as I cannot figure out how to set the Mode directly.
-                        unsafe {
-                            let name =
-                                CString::new(devpath.as_str()).expect("Unable to allocate CString");
-                            libc::mknod(
-                                name.as_ptr(),
-                                (event.get_dev_type().bits() | mode) as mode_t,
-                                makedev(event.maybe_major.unwrap(), event.maybe_minor.unwrap()),
-                            );
-                        }
+                if !dev.exists() && make_dir_if_needed(&dev) {
+                    // reaching out to the unsafe function
+                    // as I cannot figure out how to set the Mode directly.
+                    unsafe {
+                        let name =
+                            CString::new(devpath.as_str()).expect("Unable to allocate CString");
+                        libc::mknod(
+                            name.as_ptr(),
+                            (event.get_dev_type().bits() | mode) as mode_t,
+                            makedev(event.maybe_major.unwrap(), event.maybe_minor.unwrap()),
+                        );
                     }
                 }
                 // Now set the owner.
