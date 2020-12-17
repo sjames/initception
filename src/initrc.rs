@@ -131,7 +131,7 @@ pub struct Service {
     #[serde(skip_serializing)]
     pub is_static: bool,
 }
-
+#[derive(PartialEq)]
 pub enum ServiceType {
     Normal,
     LifecycleManager,

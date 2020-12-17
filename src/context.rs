@@ -42,10 +42,25 @@ impl RuntimeEntity {
             _ => None,
         }
     }
+
+    pub fn is_normal_service(&self) -> bool {
+        match self {
+            RuntimeEntity::Service(s) => s.get_service_type() == ServiceType::Normal,
+            _ => false,
+        }
+    }
+
     pub fn is_unit(&self) -> bool {
         match self {
             RuntimeEntity::Unit(_) => true,
             _ => false,
+        }
+    }
+
+    pub fn get_name(&self)  -> Option<&String> {
+        match self {
+            RuntimeEntity::Service(s) => Some(&s.service.name),
+            RuntimeEntity::Unit(u) => {Some(&u.unit.name)},
         }
     }
     pub fn cleanup_resources(&mut self) {
@@ -177,9 +192,40 @@ impl Context {
             RuntimeEntity::Unit(unit) => Some(unit.unit.name.clone()),
         }
     }
+
+    pub fn is_running(&self, node_index: NodeIndex) -> bool {
+        let entity: &RuntimeEntity = &self.children[node_index].read().unwrap();
+        match entity {
+            RuntimeEntity::Service(service) => service.state == RunningState::Running || service.state == RunningState::WaitForConnect ,
+            RuntimeEntity::Unit(unit) => false,
+        }
+    }
+
+    pub fn get_all_services(&self) -> Vec<String> {
+        let names = self.children.raw_nodes().iter().filter_map(|n| {
+            let node = n.weight.read().unwrap();
+            if node.is_normal_service() {
+                Some(String::from(node.get_name().unwrap()))
+            } else {
+                None
+            }
+        }).collect();
+        names
+    }
+
+    pub fn get_service_index(&self, name: &str) -> Option<ServiceIndex> {
+        self.children.node_indices().find_map(|n| {
+            let node = self.children[n].read().unwrap();
+            if node.is_normal_service() && node.get_name().unwrap() == name {
+                Some(n)
+            } else {
+                None
+            }
+        })
+    }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum RunningState {
     Unknown,
     WaitForConnect, // waiting for process to connect and confirm running state

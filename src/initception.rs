@@ -137,7 +137,7 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
         }
 
         for service_idx in initial_services {
-            if let Err(_) = tx.send(TaskMessage::RequestLaunch(service_idx)) {
+            if let Err(_) = tx.send(TaskMessage::RequestLaunch(service_idx, None)) {
                 panic!("Receiver dropped");
             }
         }
@@ -152,9 +152,7 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
     // Needed for the signal function below
     let tx = tx_orig.clone();
 
-    let rng_main = Arc::new(Mutex::new(rand::rngs::SmallRng::from_seed([
-        2, 5, 6, 7, 4, 3, 5, 6, 7, 5, 4, 3, 5, 6, 7, 7,
-    ])));
+
 
     // This is the main dispatch function for initception
     tokio::task::spawn_blocking(move || {
@@ -162,7 +160,6 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
             let cloned_context = context.clone();
             let _mount_context = context.clone();
             let tx = tx_orig.clone();
-            let _rng = rng_main.clone();
             match msg {
                 TaskMessage::ConfigureNetworkLoopback => tokio::spawn(async move {
                     //debug!("Configure Loopback network interface");
@@ -170,18 +167,19 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                     //network::configure_network_interface(ip, String::from("lo")).await
                     debug!("Loopback network set up (skipped)");
                 }),
-                TaskMessage::ProcessRunning(id) => tokio::spawn(async move {
+                TaskMessage::ProcessRunning(id,notify) => tokio::spawn(async move {
                     debug!("Process Running {:?}", id);
                     let deps = cloned_context.read().unwrap().get_immediate_dependants(id);
                     for dep in deps {
                         debug!("Launching dep {:?}", dep);
 
-                        if let Err(_) = tx.send(TaskMessage::RequestLaunch(dep)) {
+                        if let Err(_) = tx.send(TaskMessage::RequestLaunch(dep,None)) {
                             panic!("Receiver dropped");
                         }
                     }
                 }),
-                TaskMessage::ProcessLaunched(id) => tokio::spawn(async move {
+                TaskMessage::ProcessLaunched(id,mut notify) => tokio::spawn(async move {
+                    
                     debug!("Process launched {:?}", id);
                     let deps = cloned_context
                         .read()
@@ -189,12 +187,12 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                         .get_immediate_dependant_services(id);
                     for dep in deps {
                         debug!("Launching dep {:?}", dep);
-                        if let Err(_) = tx.send(TaskMessage::RequestLaunch(dep)) {
+                        if let Err(_) = tx.send(TaskMessage::RequestLaunch(dep, None)) {
                             panic!("Receiver dropped");
                         }
                     }
                 }),
-                TaskMessage::ProcessExited(id) => tokio::spawn(async move {
+                TaskMessage::ProcessExited(id, _notify) => tokio::spawn(async move {
                     debug!("Pid {:?} has exited", id);
                     if let Some(context) = cloned_context.write().unwrap().get_service(id) {
                         context.write().unwrap().cleanup_resources();
@@ -203,19 +201,19 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                     if let Some(time_ms) = cloned_context.read().unwrap().check_restart(id) {
                         tokio::spawn(async move {
                             delay_for(Duration::from_millis(time_ms as u64)).await;
-                            if let Err(_) = tx.send(TaskMessage::RequestLaunch(id)) {
+                            if let Err(_) = tx.send(TaskMessage::RequestLaunch(id, None)) {
                                 panic!("Receiver dropped");
                             }
                         });
                     }
                 }),
-                TaskMessage::ProcessPaused(id) => tokio::spawn(async move {
+                TaskMessage::ProcessPaused(id, notify) => tokio::spawn(async move {
                     debug!("Pid {:?} has confirmed pause", id);
                 }),
-                TaskMessage::ProcessStopped(id) => tokio::spawn(async move {
+                TaskMessage::ProcessStopped(id, notify) => tokio::spawn(async move {
                     debug!("Pid {:?} has confirmed stop", id);
                 }),
-                TaskMessage::RequestLaunch(id) => {
+                TaskMessage::RequestLaunch(id, mut notify) => {
                     let server_context = context.clone();
                     let (notify_type, name) = {
                         let context = cloned_context.read().unwrap();
@@ -238,12 +236,20 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                         } else {
                             debug!(
                                 "launched service : {:?}",
-                                context.read().unwrap().get_name(id)
+                                name.unwrap(),
                             );
+
+                            // notify success if someone has requested for it
+                            if let Some(tx) = notify.take() {
+                                let _ = tx.send(TaskReply::Ok);
+                            }
+                            // We wait for notification from an application
+                            // before we mark it as running.
+
                             let msg = if notify_type {
-                                TaskMessage::ProcessLaunched(id)
+                                TaskMessage::ProcessLaunched(id,notify)
                             } else {
-                                TaskMessage::ProcessRunning(id)
+                                TaskMessage::ProcessRunning(id, notify)
                             };
                             if let Err(_) = tx.send(msg) {
                                 panic!("Receiver dropped");
@@ -283,7 +289,7 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                     for dep in deps {
                         debug!("Launching dep {:?}", dep);
 
-                        if let Err(_) = tx.send(TaskMessage::RequestLaunch(dep)) {
+                        if let Err(_) = tx.send(TaskMessage::RequestLaunch(dep, None)) {
                             panic!("Receiver dropped");
                         }
                     }
@@ -303,8 +309,8 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
             let (killed, _stopped, _continued) =
                 cloned_context.write().unwrap().process_child_events();
             for pid in killed {
-                if let Err(_) = tx.send(TaskMessage::ProcessExited(pid)) {
-                    panic!("Receiver dropped.3");
+                if let Err(_) = tx.send(TaskMessage::ProcessExited(pid, None)) {
+                    panic!("Receiver dropped");
                 }
             }
         }

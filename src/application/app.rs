@@ -62,13 +62,16 @@ pub const APPNAME_LIFECYCLE_MANAGER: &str = "lifecycle.manager";
 
 pub struct ApplicationClient {
     manager_proxy: app_int::ApplicationManagerClient,
+    lifecycle_proxy : app_int::LifecycleServerClient,
 }
 
 impl ApplicationClient {
     pub fn new() -> Self {
         let client_fd = get_client_fd().unwrap();
+        let client = Client::new(client_fd);
         ApplicationClient {
-            manager_proxy: app_int::ApplicationManagerClient::new(Client::new(client_fd)),
+            manager_proxy: app_int::ApplicationManagerClient::new(client.clone()),
+            lifecycle_proxy: app_int::LifecycleServerClient::new(client),
         }
     }
 
@@ -103,6 +106,16 @@ impl ApplicationClient {
 
         req.set_timestamp(timestamp);
         let _reply = self.manager_proxy.heartbeat(&req, 0).await;
+    }
+
+    // The following functions are only available for the lifecycle manager
+    pub async fn get_applications(&mut self) -> Option<Vec<String>> {
+        let req = application_interface::GetApplicationsRequest::new();
+        if let Ok(reply) = self.lifecycle_proxy.get_applications(&req, 0).await {
+            Some(reply.name.into())
+        } else {
+            None
+        }
     }
 }
 

@@ -13,14 +13,34 @@
 
 /// This is where all the common types go
 use crate::context::ServiceIndex;
+use std::sync::mpsc::Sender;
 
+pub enum TaskReply {
+    Ok,
+    Error,
+}
+
+impl TaskReply {
+    pub fn is_ok(&self) -> bool {
+        match  self {
+            TaskReply::Ok => true,
+            _ => false,
+        }
+    }
+}
+
+impl Default for TaskReply {
+    fn default() -> Self {
+        TaskReply::Ok
+    }
+}
 pub enum TaskMessage {
-    RequestLaunch(ServiceIndex),
-    ProcessLaunched(ServiceIndex),
-    ProcessRunning(ServiceIndex),
-    ProcessPaused(ServiceIndex),  // process has confirmed the pause
-    ProcessStopped(ServiceIndex), // process has confirmed the stop
-    ProcessExited(ServiceIndex),
+    RequestLaunch(ServiceIndex,Option<Sender<TaskReply>>),
+    ProcessLaunched(ServiceIndex,Option<Sender<TaskReply>>),
+    ProcessRunning(ServiceIndex,Option<Sender<TaskReply>>),
+    ProcessPaused(ServiceIndex,Option<Sender<TaskReply>>),  // process has confirmed the pause
+    ProcessStopped(ServiceIndex,Option<Sender<TaskReply>>), // process has confirmed the stop
+    ProcessExited(ServiceIndex,Option<Sender<TaskReply>>),
     ConfigureNetworkLoopback,        // configure and enable the lo interface
     UeventReady,                     // The Uevent task is ready to listen for events
     DeviceChanged(DeviceChangeInfo), // a device has been added

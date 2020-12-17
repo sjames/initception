@@ -44,6 +44,7 @@ pub trait ApplicationConfig {
     fn create(&self, params: &CreateParams) -> Option<std::boxed::Box<dyn Application>>;
 }
 
+
 pub struct CreateParams {}
 pub struct RunParams {}
 

@@ -117,7 +117,7 @@ impl application_interface_ttrpc::ApplicationManager for ServiceManager {
                 let inner = self.inner.read().unwrap();
                 let tx = inner.tx.lock().unwrap();
 
-                if let Err(_) = tx.send(TaskMessage::ProcessPaused(inner.service_index)) {
+                if let Err(_) = tx.send(TaskMessage::ProcessPaused(inner.service_index, None)) {
                     panic!("Receiver dropped");
                 }
                 Ok(application_interface::StateChangedResponse::default())
@@ -136,7 +136,7 @@ impl application_interface_ttrpc::ApplicationManager for ServiceManager {
 
                 let tx = inner.tx.lock().unwrap();
 
-                if let Err(_) = tx.send(TaskMessage::ProcessRunning(inner.service_index)) {
+                if let Err(_) = tx.send(TaskMessage::ProcessRunning(inner.service_index, None)) {
                     panic!("Receiver dropped");
                 }
                 Ok(application_interface::StateChangedResponse::default())
@@ -145,7 +145,7 @@ impl application_interface_ttrpc::ApplicationManager for ServiceManager {
                 let inner = self.inner.read().unwrap();
                 let tx = inner.tx.lock().unwrap();
 
-                if let Err(_) = tx.send(TaskMessage::ProcessStopped(inner.service_index)) {
+                if let Err(_) = tx.send(TaskMessage::ProcessStopped(inner.service_index, None)) {
                     panic!("Receiver dropped");
                 }
                 Ok(application_interface::StateChangedResponse::default())
