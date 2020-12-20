@@ -119,47 +119,6 @@ impl RuntimeEntity {
             RuntimeEntity::Unit(_u) => panic!("Attempt to set proxy on Unit"),
         }
     }
-
-    pub async fn send_stop_event(spawned_ref: RuntimeEntityReference, timeout: std::time::Duration) -> Result<(),()>{
-
-            let ret = crate::process::stop_service(spawned_ref);
-
-            Ok(())
-    }
-
-/*
-    pub async fn send_stop_event_dep(&mut self, timeout: std::time::Duration) -> Result<(),()>{
-        match self {
-            RuntimeEntity::Service(s) => {
-                if let Some(proxy) = &mut s.proxy {
-                    let req = application_interface::StopRequest::new();
-                    // TODO: Set stop timeout here.  Fixing to 2 seconds
-                    info!("Sending stop notification to application ");
-                    let res = proxy.stop(&req, timeout.as_nanos() as i64).await;
-                    info!("Sent stop notification to application ");
-                    
-                    if let Ok(res)  = res  {
-                        if res.get_status() != application_interface::ReturnStatus::OK {
-                            info!("Application {} did not confirm stop with OK", self.get_name().unwrap());
-                            let ret = crate::process::stop_service(self);
-                            Err(())
-                        } else {
-                            let ret = crate::process::stop_service(self);
-                            Ok(())
-                        }
-                    } else {
-                        info!("Application {} did not confirm stop within the timeout", self.get_name().unwrap());
-                        let ret = crate::process::stop_service(self);
-                        Err(())
-                    }
-                } else {
-                    Err(())
-                }
-            },
-            RuntimeEntity::Unit(_u) => panic!("Attempt to call proxy on Unit"),
-        }
-    }
-    */
 }
 
 #[derive(Debug)]

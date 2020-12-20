@@ -229,6 +229,8 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                         
                         if let Err(ret) = crate::context::kill_service(context,id).await {
                             error!("Kill service failed : {}",ret);
+                        } else {
+                            debug!("Success killing service");
                         }
 
                         if let Some(notify) = notify {

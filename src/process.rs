@@ -24,7 +24,7 @@ use unshare::{Capability, Fd, Namespace};
 use std::os::unix::io::IntoRawFd;
 use std::os::unix::net::UnixStream;
 
-use tracing::{debug, info};
+use tracing::{debug, info, error};
 
 use crate::application::app::{NOTIFY_APP_CLIENT_FD, NOTIFY_APP_SERVER_FD};
 
@@ -37,8 +37,6 @@ fn create_self_command(name: &str) -> unshare::Command {
 }
 
 pub async fn stop_service(spawned_ref: RuntimeEntityReference) -> Result<(), nix::Error> {
-
-
     let proxy = {
         let mut entity: &mut RuntimeEntity = &mut spawned_ref.write().unwrap();
         if let &mut RuntimeEntity::Service(spawn) = &mut entity {
@@ -65,18 +63,18 @@ pub async fn stop_service(spawned_ref: RuntimeEntityReference) -> Result<(), nix
 
     let mut entity: &mut RuntimeEntity = &mut spawned_ref.write().unwrap();
     if let &mut RuntimeEntity::Service(spawn) = &mut entity {
-        println!("Sending KILL SIGNALS");
         if spawn.state.is_alive() {
             if let Some(child) = &mut spawn.child {
                 // send sigint first, then SIGTERM
-                child.signal(unshare::Signal::SIGINT)
-                    .and_then(|_| child.kill())
-                    .map_err(|_| nix::Error::invalid_argument())?;
-                
-                    let _ = child.wait();
-                    Ok(())
-                
+                info!("Sending SIGINT and SIGTERM to process with PID : {}",child.pid());
+                if let  Err(e) = child.signal(unshare::Signal::SIGINT) {
+                    error!("Failed to send SIGINT to PID:{} ({})", child.pid(),e);
+                } else if let Err(e) = child.kill() {
+                    error!("Failed to send SIGTERM to PID:{} ({})", child.pid(), e);
+                }
+                Ok(())
             } else {
+                error!("Task is not alive");
                 Err(nix::Error::invalid_argument())    
             }
         } else {
@@ -228,7 +226,7 @@ pub fn launch_service(spawned_ref: RuntimeEntityReference) -> Result<(), nix::Er
         let child = match cmd.spawn() {
             Ok(child) => child,
             Err(e) => {
-                println!("Error: {}", e);
+                error!("Error: {}", e);
                 return Err(nix::Error::Sys(nix::errno::Errno::UnknownErrno));
             }
         };

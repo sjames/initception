@@ -13,7 +13,6 @@
 
 use std::time::Duration;
 
-use tokio::stream::StreamExt;
 use tokio::sync::oneshot::channel as oneshot_channel;
 use tokio::sync::oneshot::Sender;
 use tokio::time::timeout;
