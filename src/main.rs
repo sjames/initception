@@ -13,7 +13,6 @@
 
 // Main entry point
 
-#![feature(custom_inner_attributes)]
 use getopts::Options;
 use std::env;
 use tracing::{info, Level};
