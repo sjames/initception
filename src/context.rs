@@ -24,14 +24,14 @@ use std::os::unix::net::UnixStream;
 use tracing::{debug, info, warn};
 use unshare::ChildEvent;
 
-use crate::application::src_gen::application_interface_ttrpc::ApplicationServiceClient;
-use crate::application::src_gen::application_interface;
-use crate::servers::application_client::{ApplicationServiceWrapper, ApplicationServiceProxy};
+
+
+use crate::servers::application_client::{ApplicationServiceProxy};
 
 use crate::application::config::ApplicationConfig;
 
 use std::time::Instant;
-use std::sync::{Arc, RwLock};
+
 
 pub enum RuntimeEntity {
     Service(SpawnedService),

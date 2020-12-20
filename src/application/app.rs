@@ -121,7 +121,7 @@ impl ApplicationClient {
     pub async fn stop_application(&mut self, name:&str) {
         let mut req = application_interface::StopApplicationRequest::new();
         req.set_name(String::from(name));
-        if let Ok(reply) = self.lifecycle_proxy.stop_application(&req, 0).await {
+        if let Ok(_reply) = self.lifecycle_proxy.stop_application(&req, 0).await {
             //Some(reply.get_status().into())
             println!("Stop ok");
         } else {
@@ -134,19 +134,19 @@ impl ApplicationClient {
     pub async fn start_application(&mut self, name:&str) {
         let mut req = application_interface::StartApplicationRequest::new();
         req.set_name(String::from(name));
-        if let Ok(reply) = self.lifecycle_proxy.start_application(&req, 0).await {
+        if let Ok(_reply) = self.lifecycle_proxy.start_application(&req, 0).await {
             //Some(reply.get_status().into())
-            println!("Stop ok");
+            println!("Start ok");
         } else {
             //None
-            println!("Stop failed");
+            println!("Start failed");
         }
     }
 
     pub async fn pause_application(&mut self, name:&str) {
         let mut req = application_interface::PauseApplicationRequest::new();
         req.set_name(String::from(name));
-        if let Ok(reply) = self.lifecycle_proxy.pause_application(&req, 0).await {
+        if let Ok(_reply) = self.lifecycle_proxy.pause_application(&req, 0).await {
             //Some(reply.get_status().into())
             println!("Stop ok");
         } else {
@@ -158,7 +158,7 @@ impl ApplicationClient {
     pub async fn resume_application(&mut self, name:&str) {
         let mut req = application_interface::ResumeApplicationRequest::new();
         req.set_name(String::from(name));
-        if let Ok(reply) = self.lifecycle_proxy.resume_application(&req, 0).await {
+        if let Ok(_reply) = self.lifecycle_proxy.resume_application(&req, 0).await {
             //Some(reply.get_status().into())
             println!("Stop ok");
         } else {

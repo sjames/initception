@@ -21,7 +21,7 @@ use crate::application::src_gen::application_interface_ttrpc;
 use async_trait::async_trait;
 use std::sync::Arc;
 
-use tracing::{debug, error, info};
+use tracing::{debug};
 pub struct LifecycleServerImpl {
     inner: InnerReference,
 }

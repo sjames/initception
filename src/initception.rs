@@ -25,7 +25,7 @@ use tokio::stream::StreamExt;
 use tokio::time::delay_for;
 use tracing::{debug, error, info};
 //use uuid;
-use rand::Rng;
+
 
 
 // For rtnetlink
@@ -260,7 +260,7 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                     tokio::spawn(async move {
 
                         debug!("Request stop for {:?}",id);
-                        let timeout = std::time::Duration::from_secs(2);
+                        let _timeout = std::time::Duration::from_secs(2);
                         
                         if let Err(ret) = crate::context::kill_service(context,id).await {
                             error!("Kill service failed : {}",ret);

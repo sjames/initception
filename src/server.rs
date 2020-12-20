@@ -27,7 +27,7 @@ use crate::application::src_gen::application_interface_ttrpc;
 
 
 use crate::application::src_gen::application_interface_ttrpc::{ApplicationServiceClient};
-use crate::servers::application_client::{ApplicationServiceProxy,ApplicationServiceWrapper};
+use crate::servers::application_client::{ApplicationServiceWrapper};
 use async_trait::async_trait;
 
 use ttrpc::r#async::Client;

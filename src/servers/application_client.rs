@@ -1,14 +1,14 @@
-use crate::context::{ServiceIndex, ContextReference};
-use crate::application::src_gen::{application_interface_ttrpc::ApplicationServiceClient, application_interface,application_interface_ttrpc};
+
+use crate::application::src_gen::{application_interface_ttrpc::ApplicationServiceClient, application_interface};
 use thiserror::Error;
 use std::time::Duration;
 
-use std::sync::{Arc, RwLock};
 
-use tokio::sync::mpsc::{channel,Sender, Receiver};
-use futures::TryFutureExt;
 
-use tracing::{debug, info, warn};
+use tokio::sync::mpsc::{Sender, Receiver};
+
+
+use tracing::{debug};
 
 use tokio::sync::oneshot::Sender as OneShotSender;
 enum ApplicationRequest {
@@ -35,78 +35,66 @@ impl ApplicationServiceProxy {
 
     pub async fn stop(&mut self, timeout: Duration) -> Result<(),ServiceProxyError> {
         let (tx,rx) = tokio::sync::oneshot::channel::<ApplicationResponse>();
-        if let Err(_) = self.0.send(ApplicationRequest::Stop(tx,timeout)).await {
+        if self.0.send(ApplicationRequest::Stop(tx,timeout)).await.is_err() {
             Err(ServiceProxyError::Disconnected)
+        } else if let Ok(_ret) = rx.await {
+            Ok(())
         } else {
-            if let Ok(ret) = rx.await {
-                Ok(())
-            } else {
-                Err(ServiceProxyError::Disconnected)
-            }
+            Err(ServiceProxyError::Disconnected)
         }
     }
     pub async fn pause(&mut self, timeout: Duration) -> Result<(),ServiceProxyError> {
         let (tx,rx) = tokio::sync::oneshot::channel::<ApplicationResponse>();
-        if let Err(_) = self.0.send(ApplicationRequest::Pause(tx,timeout)).await {
+        if self.0.send(ApplicationRequest::Pause(tx,timeout)).await.is_err() {
             Err(ServiceProxyError::Disconnected)
+        } else if let Ok(_ret) = rx.await {
+            Ok(())
         } else {
-            if let Ok(ret) = rx.await {
-                Ok(())
-            } else {
-                Err(ServiceProxyError::Disconnected)
-            }
+            Err(ServiceProxyError::Disconnected)
         }
     }
 
     pub async fn resume(&mut self, timeout: Duration) -> Result<(),ServiceProxyError> {
         let (tx,rx) = tokio::sync::oneshot::channel::<ApplicationResponse>();
-        if let Err(_) = self.0.send(ApplicationRequest::Resume(tx,timeout)).await {
+        if self.0.send(ApplicationRequest::Resume(tx,timeout)).await.is_err() {
             Err(ServiceProxyError::Disconnected)
+        } else if let Ok(_ret) = rx.await {
+            Ok(())
         } else {
-            if let Ok(ret) = rx.await {
-                Ok(())
-            } else {
-                Err(ServiceProxyError::Disconnected)
-            }
+            Err(ServiceProxyError::Disconnected)
         }
     }
 
     pub async fn event(&mut self, key:&str, value:&str) -> Result<(),ServiceProxyError> {
         let (tx,rx) = tokio::sync::oneshot::channel::<ApplicationResponse>();
-        if let Err(_) = self.0.send(ApplicationRequest::Event(tx,String::from(key), String::from(value))).await {
+        if self.0.send(ApplicationRequest::Event(tx,String::from(key), String::from(value))).await.is_err() {
             Err(ServiceProxyError::Disconnected)
+        } else if let Ok(_ret) = rx.await {
+            Ok(())
         } else {
-            if let Ok(ret) = rx.await {
-                Ok(())
-            } else {
-                Err(ServiceProxyError::Disconnected)
-            }
+            Err(ServiceProxyError::Disconnected)
         }
     }
 
     pub async fn session_changed(&mut self, session:&str) -> Result<(),ServiceProxyError> {
         let (tx,rx) = tokio::sync::oneshot::channel::<ApplicationResponse>();
-        if let Err(_) = self.0.send(ApplicationRequest::SessionChanged(tx,String::from(session))).await {
+        if self.0.send(ApplicationRequest::SessionChanged(tx,String::from(session))).await.is_err() {
             Err(ServiceProxyError::Disconnected)
+        } else if let Ok(_ret) = rx.await {
+            Ok(())
         } else {
-            if let Ok(ret) = rx.await {
-                Ok(())
-            } else {
-                Err(ServiceProxyError::Disconnected)
-            }
+            Err(ServiceProxyError::Disconnected)
         }
     }
 
     pub async fn application_quit(&mut self) -> Result<(),ServiceProxyError> {
-        let (tx,rx) = tokio::sync::oneshot::channel::<ApplicationResponse>();
-        if let Err(_) = self.0.send(ApplicationRequest::ServerQuit).await {
+        let (_tx,rx) = tokio::sync::oneshot::channel::<ApplicationResponse>();
+        if self.0.send(ApplicationRequest::ServerQuit).await.is_err() {
             Err(ServiceProxyError::Disconnected)
+        } else if let Ok(_ret) = rx.await {
+            Ok(())
         } else {
-            if let Ok(ret) = rx.await {
-                Ok(())
-            } else {
-                Err(ServiceProxyError::Disconnected)
-            }
+            Err(ServiceProxyError::Disconnected)
         }
     }
 }
@@ -145,7 +133,7 @@ impl ApplicationServiceWrapper {
                         let _e = tx.send(ApplicationResponse::Ok);
                     }
                 },
-                ApplicationRequest::Resume(tx, timeout) => {
+                ApplicationRequest::Resume(tx, _timeout) => {
                     let timeout = Duration::from_millis(1000);
                     if let Err(e) = self.resume(timeout).await {
                         let _e = tx.send(ApplicationResponse::Error(e));
@@ -226,7 +214,7 @@ impl ApplicationServiceWrapper {
         req.set_key(String::from(prop.0));
         req.set_value(String::from(prop.1));
 
-        if let Ok(res) = self.0.property_changed(&req, timeout.as_nanos() as i64).await {
+        if let Ok(_res) = self.0.property_changed(&req, timeout.as_nanos() as i64).await {
             Ok(())
         } else {
             Err(ServiceProxyError::Disconnected)
@@ -237,7 +225,7 @@ impl ApplicationServiceWrapper {
             let mut req = application_interface::EventRequest::new();
             req.set_key(prop.0);
             req.set_value(prop.1);
-            if let Ok(res) = self.0.event(&req, timeout.as_nanos() as i64).await {
+            if let Ok(_res) = self.0.event(&req, timeout.as_nanos() as i64).await {
                 Ok(())
             } else {
                 Err(ServiceProxyError::Disconnected)
