@@ -32,6 +32,7 @@ fn create_self_command(name: &str) -> unshare::Command {
     let path = std::fs::read_link("/proc/self/exe").expect("Unable to read /proc/self/exe");
 
     let mut cmd = unshare::Command::new(&path);
+    cmd.arg0(name);
     cmd.arg("-i").arg(name);
     cmd
 }
