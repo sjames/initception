@@ -26,10 +26,12 @@ use unshare::ChildEvent;
 
 use crate::application::src_gen::application_interface_ttrpc::ApplicationServiceClient;
 use crate::application::src_gen::application_interface;
+use crate::servers::application_client::{ApplicationServiceWrapper, ApplicationServiceProxy};
 
 use crate::application::config::ApplicationConfig;
 
 use std::time::Instant;
+use std::sync::{Arc, RwLock};
 
 pub enum RuntimeEntity {
     Service(SpawnedService),
@@ -102,9 +104,11 @@ impl RuntimeEntity {
         }
     }
 
-    pub fn set_service_proxy(&mut self, proxy: ApplicationServiceClient) {
+    pub fn set_service_proxy(&mut self, proxy: ApplicationServiceProxy) {
         match self {
-            RuntimeEntity::Service(s) => s.proxy = Some(proxy),
+            RuntimeEntity::Service(s) => {
+                    s.proxy = Some(proxy)
+                },
             RuntimeEntity::Unit(_u) => panic!("Attempt to set proxy on Unit"),
         }
     }
@@ -116,17 +120,46 @@ impl RuntimeEntity {
         }
     }
 
-    pub async fn send_stop_event(&mut self) {
+    pub async fn send_stop_event(spawned_ref: RuntimeEntityReference, timeout: std::time::Duration) -> Result<(),()>{
+
+            let ret = crate::process::stop_service(spawned_ref);
+
+            Ok(())
+    }
+
+/*
+    pub async fn send_stop_event_dep(&mut self, timeout: std::time::Duration) -> Result<(),()>{
         match self {
             RuntimeEntity::Service(s) => {
                 if let Some(proxy) = &mut s.proxy {
                     let req = application_interface::StopRequest::new();
-                    proxy.stop(&req, 0).await;
+                    // TODO: Set stop timeout here.  Fixing to 2 seconds
+                    info!("Sending stop notification to application ");
+                    let res = proxy.stop(&req, timeout.as_nanos() as i64).await;
+                    info!("Sent stop notification to application ");
+                    
+                    if let Ok(res)  = res  {
+                        if res.get_status() != application_interface::ReturnStatus::OK {
+                            info!("Application {} did not confirm stop with OK", self.get_name().unwrap());
+                            let ret = crate::process::stop_service(self);
+                            Err(())
+                        } else {
+                            let ret = crate::process::stop_service(self);
+                            Ok(())
+                        }
+                    } else {
+                        info!("Application {} did not confirm stop within the timeout", self.get_name().unwrap());
+                        let ret = crate::process::stop_service(self);
+                        Err(())
+                    }
+                } else {
+                    Err(())
                 }
             },
-            RuntimeEntity::Unit(_u) => panic!("Attempt to set proxy on Unit"),
+            RuntimeEntity::Unit(_u) => panic!("Attempt to call proxy on Unit"),
         }
     }
+    */
 }
 
 #[derive(Debug)]
@@ -149,7 +182,7 @@ pub struct SpawnedService {
     pub state: RunningState,
     pub exit_status: Option<unshare::ExitStatus>,
     pub uuid: Option<String>, // The UUid for this instance of the application
-    pub proxy: Option<ApplicationServiceClient>,
+    pub proxy: Option<ApplicationServiceProxy>,
     // This is the socket to communicate with the application server
     pub client_fd: Option<UnixStream>,
     // socket to host the application manager server
@@ -604,10 +637,11 @@ impl<'a> Context {
         launch_service(self.children[index].clone()) // launch_service does the checks.
     }
 
-    pub fn kill_service(&self, index: ServiceIndex) -> Result<(), nix::Error> {
-        stop_service(self.children[index].clone()) // launch_service does the checks.
+    pub async fn kill_service_dep(&self, index: ServiceIndex) -> Result<(), nix::Error> {
+        stop_service(self.children[index].clone()).await 
     }
     
+
     fn set_state(&mut self, index: ServiceIndex, state: RunningState) {
         let entity: &mut RuntimeEntity = &mut self.children[index].write().unwrap();
         if let RuntimeEntity::Service(service) = entity {
@@ -745,3 +779,8 @@ impl<'a> Context {
         (killed, stopped, continued)
     }
 }
+
+pub async fn kill_service(context: ContextReference, index: ServiceIndex) -> Result<(), nix::Error> {
+    let runtime = context.read().unwrap().children[index].clone();
+    stop_service(runtime).await 
+} 

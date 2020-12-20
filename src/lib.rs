@@ -13,8 +13,6 @@
 
 // INITCEPTION client library
 
-extern crate failure;
-extern crate failure_derive;
 extern crate getopts;
 extern crate lazy_static;
 extern crate nix;

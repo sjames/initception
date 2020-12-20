@@ -117,6 +117,19 @@ impl ApplicationClient {
             None
         }
     }
+
+    pub async fn stop_application(&mut self, name:&str) {
+        let mut req = application_interface::StopApplicationRequest::new();
+        req.set_name(String::from(name));
+        if let Ok(reply) = self.lifecycle_proxy.stop_application(&req, 0).await {
+            //Some(reply.get_status().into())
+            println!("Stop ok");
+        } else {
+            //None
+            println!("Stop failed");
+        }
+
+    }
 }
 
 struct ApplicationServerInner<P: FnMut(), R: FnMut(), S: FnMut(), C: FnMut(&str)> {

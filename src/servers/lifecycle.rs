@@ -1,12 +1,6 @@
 use std::time::Duration;
 
 
-
-
-
-
-
-
 use crate::common::*;
 use crate::context::{ContextReference, ServiceIndex, RunningState};
 
@@ -197,6 +191,7 @@ impl application_interface_ttrpc::LifecycleServer for LifecycleServerImpl {
         req: application_interface::StopApplicationRequest,
     ) -> ttrpc::Result<application_interface::StopApplicationResponse> {
 
+        println!("Stop application request for {}",req.get_name());
         let inner = self.inner.read().unwrap();
         let context = inner.context.read().unwrap();
         let index = context.get_service_index(req.get_name());
@@ -205,6 +200,7 @@ impl application_interface_ttrpc::LifecycleServer for LifecycleServerImpl {
                  if context.is_running(index) {
                     let tx = inner.tx.lock().unwrap().clone();
                     let (sender, rx) = std::sync::mpsc::channel::<TaskReply>();
+                    println!("Requesting stop for {}",req.get_name());
                     if let Err(_e) = tx.send(TaskMessage::RequestStop(index, Some(sender))) {
                         panic!("receiver dropped");
                     }

@@ -27,7 +27,8 @@ use crate::application::src_gen::application_interface;
 use crate::application::src_gen::application_interface_ttrpc;
 
 
-use crate::application::src_gen::application_interface_ttrpc::ApplicationServiceClient;
+use crate::application::src_gen::application_interface_ttrpc::{ApplicationServiceClient};
+use crate::servers::application_client::{ApplicationServiceProxy,ApplicationServiceWrapper};
 use async_trait::async_trait;
 
 use ttrpc::r#async::Client;
@@ -244,21 +245,34 @@ pub async fn manage_a_service(
 
         // wait for a "reasonable time" for the application to connect back.  The application must
         // load the server before connecting back so the client we launch here does not fail.
-        if timeout(Duration::from_millis(2000), app_running_signal_rx).await.is_err() {
+        let app_client_server =  if timeout(Duration::from_millis(2000), app_running_signal_rx).await.is_err() {
             error!("Application did not connect within 2000 milliseconds");
+            None
         } else {
-            // Application connected. Create the proxy
+            // Application connected. Create the proxy and the server for this application
+            debug!("Application connected. Creating Application proxy");
+            let mut maybe_server = None;
             let runtime_entity = context.read().unwrap().get_service(service_index).unwrap();
             let mut runtime_entity = runtime_entity.write();
             let runtime_entity = runtime_entity.as_deref_mut().unwrap();
 
-            if let Some(fd) = runtime_entity.take_server_fd() {
-                runtime_entity.set_service_proxy(ApplicationServiceClient::new(Client::new(
-                    fd.into_raw_fd(),
-                )));
+            if let Some(fd) = runtime_entity.take_client_fd() {
+                let (server,proxy) 
+                    = ApplicationServiceWrapper::new_pair(ApplicationServiceClient::new(Client::new(
+                        fd.into_raw_fd())));
+                maybe_server = Some(server);
+                runtime_entity.set_service_proxy(proxy);
             }
+            maybe_server
+        };
+
+        if let Some(mut server) = app_client_server {
+            tokio::spawn(async move {
+                server.serve().await
+            });
         }
 
+        debug!("Application server waiting for termination signal");
         // cleanup when the application has terminated
         match app_server_terminate_rx.await {
             Ok(_) => {

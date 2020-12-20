@@ -24,7 +24,7 @@ use unshare::{Capability, Fd, Namespace};
 use std::os::unix::io::IntoRawFd;
 use std::os::unix::net::UnixStream;
 
-use tracing::debug;
+use tracing::{debug, info};
 
 use crate::application::app::{NOTIFY_APP_CLIENT_FD, NOTIFY_APP_SERVER_FD};
 
@@ -36,16 +36,46 @@ fn create_self_command(name: &str) -> unshare::Command {
     cmd
 }
 
-pub fn stop_service(spawned_ref: RuntimeEntityReference) -> Result<(), nix::Error> {
+pub async fn stop_service(spawned_ref: RuntimeEntityReference) -> Result<(), nix::Error> {
+
+
+    let proxy = {
+        let mut entity: &mut RuntimeEntity = &mut spawned_ref.write().unwrap();
+        if let &mut RuntimeEntity::Service(spawn) = &mut entity {
+            if let Some(proxy) = &mut spawn.proxy {
+                // This clone is cheap as the proxy is basically a wrapper for a sender end of 
+                // a channel.
+                Some(proxy.clone())
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    };
+
+    if let Some(mut proxy) = proxy {
+        let timeout = std::time::Duration::from_millis(2000);
+        debug!("Sending stop notification to application ");
+        let _e = proxy.stop(timeout).await;
+        debug!("Sent stop notification to application ");   
+    } else {
+        info!("No application proxy available");
+    }
+
     let mut entity: &mut RuntimeEntity = &mut spawned_ref.write().unwrap();
     if let &mut RuntimeEntity::Service(spawn) = &mut entity {
-
+        println!("Sending KILL SIGNALS");
         if spawn.state.is_alive() {
-            if let Some(child) = &spawn.child {
+            if let Some(child) = &mut spawn.child {
                 // send sigint first, then SIGTERM
                 child.signal(unshare::Signal::SIGINT)
                     .and_then(|_| child.kill())
-                    .map_err(|_| nix::Error::invalid_argument())
+                    .map_err(|_| nix::Error::invalid_argument())?;
+                
+                    let _ = child.wait();
+                    Ok(())
+                
             } else {
                 Err(nix::Error::invalid_argument())    
             }

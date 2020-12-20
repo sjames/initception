@@ -11,6 +11,7 @@
     limitations under the License.
 */
 
+/*
 use failure::Fail;
 
 #[derive(Debug, Fail)]
@@ -26,3 +27,5 @@ pub enum InitceptionServerError {
     #[fail(display = "Connection to process failed")]
     ConnectionFailed {},
 }
+
+*/

@@ -63,6 +63,7 @@ pub fn initception_main(pid1: bool) -> Result<(), Box<dyn Error>> {
 
     let context = Context::create_context().unwrap();
     let context = Arc::new(RwLock::new(context));
+
     //info!("Loaded config : {:?}", context);
     match init_async_main(context) {
         Err(e) => Err(Box::new(e)),
@@ -113,6 +114,7 @@ pub fn initception_main_static(
     }
 }
 
+/*
 // We don't need a crypto backed uuid here
 fn create_uuid(rng: &mut rand::rngs::SmallRng) -> String {
     let mut uuid = String::new();
@@ -123,6 +125,7 @@ fn create_uuid(rng: &mut rand::rngs::SmallRng) -> String {
     println!("uuid:{}", &uuid);
     uuid
 }
+*/
 
 #[tokio::main]
 async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error> {
@@ -130,6 +133,7 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
 
     {
         let initial_services = context.read().unwrap().get_initial_services();
+
         let tx = tx_orig.clone();
         info!("asyn main started");
         if tx.send(TaskMessage::ConfigureNetworkLoopback).is_err() {
@@ -214,24 +218,24 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                     debug!("Pid {:?} has confirmed stop", id);
                 }),
                 // TODO: Handle stop
-                TaskMessage::RequestStop(id, mut notify) => {
-                    let service = {
-                        let context = context.clone();
-                        let context = context.read().unwrap();    
-                        let service = context.get_service(id).unwrap();
-                        
-                        service
-                    };
-                    
-                        tokio::spawn(async move {
-                            let service = service.clone();
-                            let service = service.write().unwrap();
-                            debug!("Request stop for {:?}",id);
-                            //service.send_stop_event().await
-                        })
+                TaskMessage::RequestStop(id, notify) => {
+                    let context = context.clone();
+                    debug!("TASKMESSAGE:RequestStop {:?}",id);
 
-                        //let res = context.launch_service(id);
-                    
+                    tokio::spawn(async move {
+
+                        debug!("Request stop for {:?}",id);
+                        let timeout = std::time::Duration::from_secs(2);
+                        
+                        if let Err(ret) = crate::context::kill_service(context,id).await {
+                            error!("Kill service failed : {}",ret);
+                        }
+
+                        if let Some(notify) = notify {
+                            let _ = notify.send(TaskReply::Ok);
+                        }
+                    })
+                   
                     },
                 TaskMessage::RequestLaunch(id, mut notify) => {
                     let server_context = context.clone();
