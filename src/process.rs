@@ -36,6 +36,111 @@ fn create_self_command(name: &str) -> unshare::Command {
     cmd
 }
 
+pub async fn resume_service(spawned_ref: RuntimeEntityReference) -> Result<(), nix::Error> {
+
+    let mut entity: &mut RuntimeEntity = &mut spawned_ref.write().unwrap();
+    let err = if let &mut RuntimeEntity::Service(spawn) = &mut entity {
+        if spawn.state.is_alive() {
+            if let Some(child) = &mut spawn.child {
+                // send sigint first, then SIGTERM
+                info!("Sending SIGCONT to process with PID : {}",child.pid());
+                if let  Err(e) = child.signal(unshare::Signal::SIGCONT) {
+                    error!("Failed to send SIGCONT to PID:{} ({})", child.pid(),e);
+                } 
+                spawn.state = RunningState::Running;
+                Ok(())
+            } else {
+                error!("Task is not alive");
+                Err(nix::Error::invalid_argument())    
+            }
+        } else {
+            Err(nix::Error::invalid_argument())    
+        }
+    } else {
+        Err(nix::Error::invalid_argument())
+    };
+
+    if let Ok(_e) = err {
+
+        let proxy = {
+            let mut entity: &mut RuntimeEntity = &mut spawned_ref.write().unwrap();
+            if let &mut RuntimeEntity::Service(spawn) = &mut entity {
+                if let Some(proxy) = &mut spawn.proxy {
+                    // This clone is cheap as the proxy is basically a wrapper for a sender end of 
+                    // a channel.
+                    Some(proxy.clone())
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        };
+
+        if let Some(mut proxy) = proxy {
+            let timeout = std::time::Duration::from_millis(2000);
+            debug!("Sending resume notification to application ");
+            let _e = proxy.resume(timeout).await;
+            debug!("Sent resume notification to application ");   
+        } else {
+            info!("No application proxy available");
+        }
+    Ok(())
+    } else {
+        err
+    }
+}
+
+
+
+pub async fn pause_service(spawned_ref: RuntimeEntityReference) -> Result<(), nix::Error> {
+    let proxy = {
+        let mut entity: &mut RuntimeEntity = &mut spawned_ref.write().unwrap();
+        if let &mut RuntimeEntity::Service(spawn) = &mut entity {
+            if let Some(proxy) = &mut spawn.proxy {
+                // This clone is cheap as the proxy is basically a wrapper for a sender end of 
+                // a channel.
+                Some(proxy.clone())
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    };
+
+    if let Some(mut proxy) = proxy {
+        let timeout = std::time::Duration::from_millis(2000);
+        debug!("Sending pause notification to application ");
+        let _e = proxy.pause(timeout).await;
+        debug!("Sent pause notification to application ");   
+    } else {
+        info!("No application proxy available");
+    }
+
+    let mut entity: &mut RuntimeEntity = &mut spawned_ref.write().unwrap();
+    if let &mut RuntimeEntity::Service(spawn) = &mut entity {
+        if spawn.state.is_alive() {
+            if let Some(child) = &mut spawn.child {
+                // send sigint first, then SIGTERM
+                info!("Sending SIGSTOP to process with PID : {}",child.pid());
+                if let  Err(e) = child.signal(unshare::Signal::SIGSTOP) {
+                    error!("Failed to send SIGSTOP to PID:{} ({})", child.pid(),e);
+                } 
+                Ok(())
+            } else {
+                error!("Task is not alive");
+                Err(nix::Error::invalid_argument())    
+            }
+        } else {
+            Err(nix::Error::invalid_argument())    
+        }
+    } else {
+        Err(nix::Error::invalid_argument())
+    }
+}
+
+
 pub async fn stop_service(spawned_ref: RuntimeEntityReference) -> Result<(), nix::Error> {
     let proxy = {
         let mut entity: &mut RuntimeEntity = &mut spawned_ref.write().unwrap();
@@ -244,7 +349,7 @@ pub fn launch_service(spawned_ref: RuntimeEntityReference) -> Result<(), nix::Er
                     Type::Notify => spawn.state = RunningState::WaitForConnect,
                 }
             } else {
-                spawn.state = RunningState::Running;
+                
             }
             spawn.start_count += 1;
         }

@@ -21,6 +21,7 @@ use crate::application::src_gen::application_interface_ttrpc;
 use async_trait::async_trait;
 use std::sync::Arc;
 
+use tracing::{debug, error, info};
 pub struct LifecycleServerImpl {
     inner: InnerReference,
 }
@@ -94,9 +95,9 @@ impl application_interface_ttrpc::LifecycleServer for LifecycleServerImpl {
                 RunningState::Stopped => response.set_status(ApplicationStatus::Stopped),
                 RunningState::Paused => response.set_status(ApplicationStatus::Paused),
                 RunningState::WaitForConnect => response.set_status(ApplicationStatus::Running),
-                RunningState::Killed => response.set_status(ApplicationStatus::Stopped),
+                //RunningState::Killed => response.set_status(ApplicationStatus::Stopped),
                 RunningState::Unknown => response.set_status(ApplicationStatus::Stopped),
-                RunningState::Zombie => response.set_status(ApplicationStatus::Stopped),
+                //RunningState::Zombie => response.set_status(ApplicationStatus::Stopped),
             }
             
             Ok(response)
@@ -179,20 +180,93 @@ impl application_interface_ttrpc::LifecycleServer for LifecycleServerImpl {
     async fn pause_application(
         &self,
         _ctx: &ttrpc::r#async::TtrpcContext,
-        _req: application_interface::PauseApplicationRequest,
+        req: application_interface::PauseApplicationRequest,
     ) -> ttrpc::Result<application_interface::PauseApplicationResponse> {
-        Err(ttrpc::Error::RpcStatus(ttrpc::get_status(
-            ttrpc::Code::NOT_FOUND,
-            "/grpc.LifecycleServer/pause_application is not supported".to_string(),
-        )))
+        debug!("Pause application request for {}",req.get_name());
+        let inner = self.inner.read().unwrap();
+        let context = inner.context.read().unwrap();
+        let index = context.get_service_index(req.get_name());
+        let mut ret = application_interface::PauseApplicationResponse::default();
+        if let Some(index) = index {
+                 if context.is_running(index) {
+                    let tx = inner.tx.lock().unwrap().clone();
+                    let (sender, rx) = std::sync::mpsc::channel::<TaskReply>();
+                    println!("Requesting pause for {}",req.get_name());
+                    if let Err(_e) = tx.send(TaskMessage::RequestPause(index, Some(sender))) {
+                        panic!("receiver dropped");
+                    }
+
+                   // wait for completion
+                   if let Ok(recv) = rx.recv_timeout(Duration::from_millis(4000)) {
+                    let status = match recv {
+                        TaskReply::Ok => application_interface::ReturnStatus::OK,
+                        TaskReply::Error => application_interface::ReturnStatus::ERROR,
+                    };
+                    ret.set_status(status);
+                    Ok(ret)
+                } else {
+                    ret.set_status(application_interface::ReturnStatus::ERROR);
+                    Ok(ret)
+                }
+
+                 } else {
+                     Ok(application_interface::PauseApplicationResponse::default())
+                 }
+        }
+        else {
+            Err(ttrpc::Error::RpcStatus(ttrpc::get_status(
+                ttrpc::Code::NOT_FOUND,
+                "/grpc.LifecycleServer/pause_application is not supported".to_string(),
+            )))
+        }
     }
+
+    async fn resume_application(&self, _ctx: &::ttrpc::r#async::TtrpcContext, req: application_interface::ResumeApplicationRequest) -> ::ttrpc::Result<application_interface::ResumeApplicationResponse> {
+        debug!("Resume application request for {}",req.get_name());
+        let inner = self.inner.read().unwrap();
+        let context = inner.context.read().unwrap();
+        let index = context.get_service_index(req.get_name());
+        let mut ret = application_interface::ResumeApplicationResponse::default();
+        if let Some(index) = index {
+                 if context.is_running(index) {
+                    let tx = inner.tx.lock().unwrap().clone();
+                    let (sender, rx) = std::sync::mpsc::channel::<TaskReply>();
+                    debug!("Requesting resume for {}",req.get_name());
+                    if let Err(_e) = tx.send(TaskMessage::RequestResume(index, Some(sender))) {
+                        panic!("receiver dropped");
+                    }
+
+                   // wait for completion
+                   if let Ok(recv) = rx.recv_timeout(Duration::from_millis(4000)) {
+                    let status = match recv {
+                        TaskReply::Ok => application_interface::ReturnStatus::OK,
+                        TaskReply::Error => application_interface::ReturnStatus::ERROR,
+                    };
+                    ret.set_status(status);
+                    Ok(ret)
+                } else {
+                    ret.set_status(application_interface::ReturnStatus::ERROR);
+                    Ok(ret)
+                }
+                 } else {
+                     Ok(application_interface::ResumeApplicationResponse::default())
+                 }
+        }
+        else {
+            Err(ttrpc::Error::RpcStatus(ttrpc::get_status(
+                ttrpc::Code::NOT_FOUND,
+                "/grpc.LifecycleServer/resume_application is not supported".to_string(),
+            )))
+        }
+    }
+
     async fn stop_application(
         &self,
         _ctx: &ttrpc::r#async::TtrpcContext,
         req: application_interface::StopApplicationRequest,
     ) -> ttrpc::Result<application_interface::StopApplicationResponse> {
 
-        println!("Stop application request for {}",req.get_name());
+        debug!("Stop application request for {}",req.get_name());
         let inner = self.inner.read().unwrap();
         let context = inner.context.read().unwrap();
         let index = context.get_service_index(req.get_name());

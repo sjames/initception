@@ -217,7 +217,42 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                 TaskMessage::ProcessStopped(id, _notify) => tokio::spawn(async move {
                     debug!("Pid {:?} has confirmed stop", id);
                 }),
-                // TODO: Handle stop
+                TaskMessage::RequestResume(id, notify) => {
+                    let context = context.clone();
+                    debug!("TASKMESSAGE:RequestResume {:?}",id);
+
+                    tokio::spawn(async move {
+                        debug!("Request stop for {:?}",id);
+                        
+                        if let Err(ret) = crate::context::resume_service(context,id).await {
+                            error!("Resume service failed : {}",ret);
+                        } else {
+                            debug!("Success resuming service");
+                        }
+
+                        if let Some(notify) = notify {
+                            let _ = notify.send(TaskReply::Ok);
+                        }
+                    })
+                },
+                TaskMessage::RequestPause(id, notify) => {
+                    let context = context.clone();
+                    debug!("TASKMESSAGE:RequestPause {:?}",id);
+
+                    tokio::spawn(async move {
+                        debug!("Request stop for {:?}",id);
+                        
+                        if let Err(ret) = crate::context::pause_service(context,id).await {
+                            error!("Pause service failed : {}",ret);
+                        } else {
+                            debug!("Success pausing service");
+                        }
+
+                        if let Some(notify) = notify {
+                            let _ = notify.send(TaskReply::Ok);
+                        }
+                    })
+                },
                 TaskMessage::RequestStop(id, notify) => {
                     let context = context.clone();
                     debug!("TASKMESSAGE:RequestStop {:?}",id);

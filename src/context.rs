@@ -152,6 +152,7 @@ pub struct SpawnedService {
 
 impl SpawnedService {
     pub fn cleanup_resources(&mut self) {
+        self.state = RunningState::Stopped;
         if let Some(sender) = self.appserver_terminate_handler.take() {
             if sender.send(()).is_err() {
                 panic!("Receiver dropped");
@@ -252,8 +253,10 @@ pub enum RunningState {
     Running,
     Paused,
     Stopped,
+    /*
     Killed,
     Zombie,
+    */
 }
 
 impl RunningState {
@@ -714,7 +717,7 @@ impl<'a> Context {
                     if let Some(index) = self.get_service_by_pid(pid) {
                         killed.push(index);
                         self.set_exit_status(index, status);
-                        self.set_state(index, RunningState::Killed);
+                        self.set_state(index, RunningState::Stopped);
                     }
                 }
                 ChildEvent::Stop(pid, signal) => {
@@ -722,7 +725,7 @@ impl<'a> Context {
 
                     if let Some(index) = self.get_service_by_pid(pid) {
                         stopped.push(index);
-                        self.set_state(index, RunningState::Stopped);
+                        self.set_state(index, RunningState::Paused);
                     }
                 }
                 ChildEvent::Continue(pid) => {
@@ -741,5 +744,15 @@ impl<'a> Context {
 
 pub async fn kill_service(context: ContextReference, index: ServiceIndex) -> Result<(), nix::Error> {
     let runtime = context.read().unwrap().children[index].clone();
-    stop_service(runtime).await 
+    crate::process::stop_service(runtime).await 
+} 
+
+pub async fn pause_service(context: ContextReference, index: ServiceIndex) -> Result<(), nix::Error> {
+    let runtime = context.read().unwrap().children[index].clone();
+    crate::process::pause_service(runtime).await 
+} 
+
+pub async fn resume_service(context: ContextReference, index: ServiceIndex) -> Result<(), nix::Error> {
+    let runtime = context.read().unwrap().children[index].clone();
+    crate::process::pause_service(runtime).await 
 } 

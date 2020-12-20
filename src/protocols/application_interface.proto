@@ -167,6 +167,7 @@ service LifecycleServer {
     rpc start_application(StartApplicationRequest) returns (StartApplicationResponse);
     rpc restart_application(RestartApplicationRequest) returns (RestartApplicationResponse);
     rpc pause_application(PauseApplicationRequest) returns (PauseApplicationResponse);
+    rpc resume_application(ResumeApplicationRequest) returns (ResumeApplicationResponse);
     rpc stop_application(StopApplicationRequest) returns (StopApplicationResponse);
     rpc prepare_system_freeze(PrepareFreezeRequest) returns (PrepareFreezeResponse);
     rpc prepare_system_shutdown(PrepareShutdownRequest) returns (PrepareShutdownResponse);
@@ -219,6 +220,15 @@ message PauseApplicationRequest {
 }
 
 message PauseApplicationResponse {
+    ReturnStatus status = 1;
+    uint32 time_taken_ms = 2;
+}
+
+message ResumeApplicationRequest {
+    string name = 1;
+}
+
+message ResumeApplicationResponse {
     ReturnStatus status = 1;
     uint32 time_taken_ms = 2;
 }
