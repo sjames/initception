@@ -1,16 +1,13 @@
 pub mod app;
+pub mod application_events;
 pub mod config;
 pub mod initrc;
-pub mod application_events;
 mod src_gen;
 
 pub use src_gen::application_interface;
 pub use src_gen::application_interface_ttrpc::ApplicationServiceClient;
 pub use src_gen::application_interface_ttrpc::{
-    ApplicationManager,
-    LifecycleServer,
-    create_application_manager, 
-    create_lifecycle_server
+    create_application_manager, create_lifecycle_server, ApplicationManager, LifecycleServer,
 };
 
 #[cfg(test)]

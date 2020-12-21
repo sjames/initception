@@ -32,20 +32,20 @@ impl Default for TaskReply {
     }
 }
 pub enum TaskMessage {
-    RequestLaunch(ServiceIndex,Option<Sender<TaskReply>>),
-    RequestStop(ServiceIndex,Option<Sender<TaskReply>>),
-    RequestPause(ServiceIndex,Option<Sender<TaskReply>>),
-    RequestResume(ServiceIndex,Option<Sender<TaskReply>>),
-    ProcessLaunched(ServiceIndex,Option<Sender<TaskReply>>),
-    ProcessRunning(ServiceIndex,Option<Sender<TaskReply>>),
-    ProcessPaused(ServiceIndex,Option<Sender<TaskReply>>),  // process has confirmed the pause
-    ProcessStopped(ServiceIndex,Option<Sender<TaskReply>>), // process has confirmed the stop
-    ProcessExited(ServiceIndex,Option<Sender<TaskReply>>),
+    RequestLaunch(ServiceIndex, Option<Sender<TaskReply>>),
+    RequestStop(ServiceIndex, Option<Sender<TaskReply>>),
+    RequestPause(ServiceIndex, Option<Sender<TaskReply>>),
+    RequestResume(ServiceIndex, Option<Sender<TaskReply>>),
+    ProcessLaunched(ServiceIndex, Option<Sender<TaskReply>>),
+    ProcessRunning(ServiceIndex, Option<Sender<TaskReply>>),
+    ProcessPaused(ServiceIndex, Option<Sender<TaskReply>>), // process has confirmed the pause
+    ProcessStopped(ServiceIndex, Option<Sender<TaskReply>>), // process has confirmed the stop
+    ProcessExited(ServiceIndex, Option<Sender<TaskReply>>),
     ConfigureNetworkLoopback,        // configure and enable the lo interface
     UeventReady,                     // The Uevent task is ready to listen for events
     DeviceChanged(DeviceChangeInfo), // a device has been added
     UnitSuccess(ServiceIndex),       // A unit was successfully executed
-    PropertyChanged(ServiceIndex,String,String), // property changed by a service
+    PropertyChanged(ServiceIndex, String, String), // property changed by a service
 }
 
 pub enum DeviceChangeInfo {
@@ -56,6 +56,3 @@ pub enum DeviceChangeInfo {
 
 pub type TxHandle = tokio::sync::mpsc::Sender<TaskMessage>;
 pub type SyncTxHandle = std::sync::mpsc::Sender<TaskMessage>;
-
-
-

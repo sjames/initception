@@ -11,10 +11,6 @@
     limitations under the License.
 */
 
-
-
-
-
 use ttrpc_codegen::Codegen;
 use ttrpc_codegen::Customize;
 

@@ -41,43 +41,43 @@ pub fn do_mount(context: ContextReference, index: ServiceIndex) -> std::result::
 }
 
 fn parse_flags(flags: &str) -> Option<MsFlags> {
-    let mut msflags: MsFlags =  unsafe {MsFlags::from_bits_unchecked(0)};//  MsFlags::MS_RDONLY ^ MsFlags::MS_RDONLY; // hmm.. is there no other way to initialize the flag?
+    let mut msflags: MsFlags = unsafe { MsFlags::from_bits_unchecked(0) }; //  MsFlags::MS_RDONLY ^ MsFlags::MS_RDONLY; // hmm.. is there no other way to initialize the flag?
     info!("msflags initialized to {:?}", msflags);
     for flag in flags.split(',') {
         let keyval: Vec<&str> = flag.split('=').collect();
         if keyval.len() == 2 {
             msflags |= match keyval[0] {
-                    "RDONLY" => MsFlags::MS_RDONLY,
-                    "NOSUID" => MsFlags::MS_NOSUID,
-                    "NODEV" => MsFlags::MS_NODEV,
-                    "NOEXEC" => MsFlags::MS_NOEXEC,
-                    "SYNCHRONOUS" => MsFlags::MS_SYNCHRONOUS,
-                    "REMOUNT" => MsFlags::MS_REMOUNT,
-                    "MANDLOCK" => MsFlags::MS_MANDLOCK,
-                    "DIRSYNC" => MsFlags::MS_DIRSYNC,
-                    "NOATIME" => MsFlags::MS_NOATIME,
-                    "NODIRATIME" => MsFlags::MS_NODIRATIME,
-                    "BIND" => MsFlags::MS_BIND,
-                    "MOVE" => MsFlags::MS_MOVE,
-                    "REC" => MsFlags::MS_REC,
-                    "SILENT" => MsFlags::MS_SILENT,
-                    "POSIXACL" => MsFlags::MS_POSIXACL,
-                    "UNBINDABLE" => MsFlags::MS_UNBINDABLE,
-                    "PRIVATE" => MsFlags::MS_PRIVATE,
-                    "SLAVE" => MsFlags::MS_SLAVE,
-                    "SHARED" => MsFlags::MS_SHARED,
-                    "RELATIME" => MsFlags::MS_RELATIME,
-                    "KERNMOUNT" => MsFlags::MS_KERNMOUNT,
-                    "I_VERSION" => MsFlags::MS_I_VERSION,
-                    "STRICTATIME" => MsFlags::MS_STRICTATIME,
-                    "ACTIVE" => MsFlags::MS_ACTIVE,
-                    "NOUSER" => MsFlags::MS_NOUSER,
-                    "RMT_MASK" => MsFlags::MS_RMT_MASK,
-                    "MGC_VAL" => MsFlags::MS_MGC_VAL,
-                    "MGC_MSK" => MsFlags::MS_MGC_MSK,
-                    //_ => MsFlags::MS_RDONLY ^ MsFlags::MS_RDONLY,
-                    _ => unsafe{MsFlags::from_bits_unchecked(0)},
-                };
+                "RDONLY" => MsFlags::MS_RDONLY,
+                "NOSUID" => MsFlags::MS_NOSUID,
+                "NODEV" => MsFlags::MS_NODEV,
+                "NOEXEC" => MsFlags::MS_NOEXEC,
+                "SYNCHRONOUS" => MsFlags::MS_SYNCHRONOUS,
+                "REMOUNT" => MsFlags::MS_REMOUNT,
+                "MANDLOCK" => MsFlags::MS_MANDLOCK,
+                "DIRSYNC" => MsFlags::MS_DIRSYNC,
+                "NOATIME" => MsFlags::MS_NOATIME,
+                "NODIRATIME" => MsFlags::MS_NODIRATIME,
+                "BIND" => MsFlags::MS_BIND,
+                "MOVE" => MsFlags::MS_MOVE,
+                "REC" => MsFlags::MS_REC,
+                "SILENT" => MsFlags::MS_SILENT,
+                "POSIXACL" => MsFlags::MS_POSIXACL,
+                "UNBINDABLE" => MsFlags::MS_UNBINDABLE,
+                "PRIVATE" => MsFlags::MS_PRIVATE,
+                "SLAVE" => MsFlags::MS_SLAVE,
+                "SHARED" => MsFlags::MS_SHARED,
+                "RELATIME" => MsFlags::MS_RELATIME,
+                "KERNMOUNT" => MsFlags::MS_KERNMOUNT,
+                "I_VERSION" => MsFlags::MS_I_VERSION,
+                "STRICTATIME" => MsFlags::MS_STRICTATIME,
+                "ACTIVE" => MsFlags::MS_ACTIVE,
+                "NOUSER" => MsFlags::MS_NOUSER,
+                "RMT_MASK" => MsFlags::MS_RMT_MASK,
+                "MGC_VAL" => MsFlags::MS_MGC_VAL,
+                "MGC_MSK" => MsFlags::MS_MGC_MSK,
+                //_ => MsFlags::MS_RDONLY ^ MsFlags::MS_RDONLY,
+                _ => unsafe { MsFlags::from_bits_unchecked(0) },
+            };
         } else {
             warn!("Ignoring malformed flags");
         }

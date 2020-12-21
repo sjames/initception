@@ -15,23 +15,22 @@ use petgraph::prelude::NodeIndex;
 use petgraph::Direction;
 use petgraph::Graph;
 
-use libinitception::initrc::{load_config, Service, ServiceType, Unit, UnitType};
 use crate::mount;
 use crate::network;
 use crate::process::{launch_service, stop_service};
+use libinitception::initrc::{load_config, Service, ServiceType, Unit, UnitType};
 
-use std::os::unix::net::UnixStream;
-use tracing::{debug, info, warn, error};
-use unshare::ChildEvent;
 use regex::Regex;
+use std::os::unix::net::UnixStream;
+use tracing::{debug, error, info, warn};
+use unshare::ChildEvent;
 
-use crate::servers::application_client::{ApplicationServiceProxy};
+use crate::servers::application_client::ApplicationServiceProxy;
 
 use libinitception::config::ApplicationConfig;
 
-use std::time::Instant;
 use std::collections::HashMap;
-
+use std::time::Instant;
 
 pub enum RuntimeEntity {
     Service(SpawnedService),
@@ -57,10 +56,10 @@ impl RuntimeEntity {
         matches!(self, RuntimeEntity::Unit(_))
     }
 
-    pub fn get_name(&self)  -> Option<&String> {
+    pub fn get_name(&self) -> Option<&String> {
         match self {
             RuntimeEntity::Service(s) => Some(&s.service.name),
-            RuntimeEntity::Unit(u) => {Some(&u.unit.name)},
+            RuntimeEntity::Unit(u) => Some(&u.unit.name),
         }
     }
 
@@ -106,9 +105,7 @@ impl RuntimeEntity {
 
     pub fn set_service_proxy(&mut self, proxy: ApplicationServiceProxy) {
         match self {
-            RuntimeEntity::Service(s) => {
-                    s.proxy = Some(proxy)
-                },
+            RuntimeEntity::Service(s) => s.proxy = Some(proxy),
             RuntimeEntity::Unit(_u) => panic!("Attempt to set proxy on Unit"),
         }
     }
@@ -120,7 +117,7 @@ impl RuntimeEntity {
         }
     }
 
-    pub fn add_property_filter(&mut self, filter:&str) -> Result<(),()> {
+    pub fn add_property_filter(&mut self, filter: &str) -> Result<(), ()> {
         match self {
             RuntimeEntity::Service(s) => s.add_property_filter(filter),
             RuntimeEntity::Unit(_u) => panic!("Attempt to set proxy on Unit"),
@@ -155,7 +152,7 @@ pub struct SpawnedService {
     pub server_fd: Option<UnixStream>,
     pub appserver_terminate_handler: Option<tokio::sync::oneshot::Sender<()>>,
     last_watchdog: Option<Instant>,
-    property_filters : Option<Vec<Regex>>
+    property_filters: Option<Vec<Regex>>,
 }
 
 impl SpawnedService {
@@ -191,7 +188,7 @@ impl SpawnedService {
         self.service.get_service_type()
     }
 
-    pub fn add_property_filter(&mut self, regex_string:&str) -> Result<(),()>{
+    pub fn add_property_filter(&mut self, regex_string: &str) -> Result<(), ()> {
         if let Some(filter) = self.property_filters.as_mut() {
             if let Ok(regex) = Regex::new(regex_string) {
                 filter.push(regex);
@@ -204,12 +201,12 @@ impl SpawnedService {
         }
     }
 
-    pub fn check_if_property_match(&self,prop_key:&str) -> bool {
-        if let Some(filters) =  &self.property_filters {
+    pub fn check_if_property_match(&self, prop_key: &str) -> bool {
+        if let Some(filters) = &self.property_filters {
             for filter in filters {
-               if filter.is_match(prop_key) {
-                   return true;
-               }
+                if filter.is_match(prop_key) {
+                    return true;
+                }
             }
             return false;
         } else {
@@ -217,7 +214,7 @@ impl SpawnedService {
         }
     }
 
-    pub async fn notify_property_change(&mut self, key:&str, value:&str) {
+    pub async fn notify_property_change(&mut self, key: &str, value: &str) {
         if let Some(proxy) = self.proxy.as_mut() {
             if let Err(_ret) = proxy.property_changed(key, value).await {
                 error!("Error sending property change to service. Ignored");
@@ -227,7 +224,7 @@ impl SpawnedService {
 }
 pub struct Context {
     children: Graph<RuntimeEntityReference, u32>,
-    properties : HashMap<String,String>,
+    properties: HashMap<String, String>,
 }
 
 impl Context {
@@ -237,7 +234,7 @@ impl Context {
         self.children[*node_index].clone()
     }
 
-    pub fn get_property(&self, key:&str) -> Option<String> {
+    pub fn get_property(&self, key: &str) -> Option<String> {
         self.properties.get(key).map(|s| String::from(s))
     }
 
@@ -261,24 +258,32 @@ impl Context {
     pub fn is_running(&self, node_index: NodeIndex) -> bool {
         let entity: &RuntimeEntity = &self.children[node_index].read().unwrap();
         match entity {
-            RuntimeEntity::Service(service) => service.state == RunningState::Running || service.state == RunningState::WaitForConnect ,
+            RuntimeEntity::Service(service) => {
+                service.state == RunningState::Running
+                    || service.state == RunningState::WaitForConnect
+            }
             RuntimeEntity::Unit(_unit) => false,
         }
     }
 
     pub fn get_all_services(&self) -> Vec<String> {
-        let names = self.children.raw_nodes().iter().filter_map(|n| {
-            let node = n.weight.read().unwrap();
-            if node.is_normal_service() {
-                Some(String::from(node.get_name().unwrap()))
-            } else {
-                None
-            }
-        }).collect();
+        let names = self
+            .children
+            .raw_nodes()
+            .iter()
+            .filter_map(|n| {
+                let node = n.weight.read().unwrap();
+                if node.is_normal_service() {
+                    Some(String::from(node.get_name().unwrap()))
+                } else {
+                    None
+                }
+            })
+            .collect();
         names
     }
 
-    pub fn get_service_status(&self, name:&str) -> Option<RunningState> {
+    pub fn get_service_status(&self, name: &str) -> Option<RunningState> {
         self.children.node_indices().find_map(|n| {
             let node = self.children[n].read().unwrap();
             if node.is_normal_service() && node.get_name().unwrap() == name {
@@ -316,9 +321,9 @@ pub enum RunningState {
 
 impl RunningState {
     pub fn is_alive(&self) -> bool {
-        *self == RunningState::Running || 
-        *self == RunningState::Paused ||
-        *self == RunningState::WaitForConnect
+        *self == RunningState::Running
+            || *self == RunningState::Paused
+            || *self == RunningState::WaitForConnect
     }
 }
 
@@ -332,7 +337,7 @@ impl<'a> Context {
     pub fn new() -> Context {
         Context {
             children: Graph::new(),
-            properties : HashMap::new(),
+            properties: HashMap::new(),
         }
     }
 
@@ -351,7 +356,7 @@ impl<'a> Context {
             server_fd: None,
             appserver_terminate_handler: None,
             last_watchdog: None,
-            property_filters : None,
+            property_filters: None,
         };
 
         self.children
@@ -659,9 +664,8 @@ impl<'a> Context {
     }
 
     pub async fn kill_service_dep(&self, index: ServiceIndex) -> Result<(), nix::Error> {
-        stop_service(self.children[index].clone()).await 
+        stop_service(self.children[index].clone()).await
     }
-    
 
     fn set_state(&mut self, index: ServiceIndex, state: RunningState) {
         let entity: &mut RuntimeEntity = &mut self.children[index].write().unwrap();
@@ -801,17 +805,26 @@ impl<'a> Context {
     }
 }
 
-pub async fn kill_service(context: ContextReference, index: ServiceIndex) -> Result<(), nix::Error> {
+pub async fn kill_service(
+    context: ContextReference,
+    index: ServiceIndex,
+) -> Result<(), nix::Error> {
     let runtime = context.read().unwrap().children[index].clone();
-    crate::process::stop_service(runtime).await 
-} 
+    crate::process::stop_service(runtime).await
+}
 
-pub async fn pause_service(context: ContextReference, index: ServiceIndex) -> Result<(), nix::Error> {
+pub async fn pause_service(
+    context: ContextReference,
+    index: ServiceIndex,
+) -> Result<(), nix::Error> {
     let runtime = context.read().unwrap().children[index].clone();
-    crate::process::pause_service(runtime).await 
-} 
+    crate::process::pause_service(runtime).await
+}
 
-pub async fn resume_service(context: ContextReference, index: ServiceIndex) -> Result<(), nix::Error> {
+pub async fn resume_service(
+    context: ContextReference,
+    index: ServiceIndex,
+) -> Result<(), nix::Error> {
     let runtime = context.read().unwrap().children[index].clone();
-    crate::process::pause_service(runtime).await 
-} 
+    crate::process::pause_service(runtime).await
+}

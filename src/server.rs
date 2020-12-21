@@ -25,12 +25,11 @@ use crate::context::{ContextReference, RuntimeEntityReference, ServiceIndex};
 //use crate::application::src_gen::application_interface;
 //use crate::application::src_gen::application_interface_ttrpc;
 
-
 //use crate::application::src_gen::application_interface_ttrpc::{ApplicationServiceClient};
-use crate::servers::application_client::{ApplicationServiceWrapper};
+use crate::servers::application_client::ApplicationServiceWrapper;
 
 use libinitception::application_interface;
-use libinitception::{ApplicationServiceClient, ApplicationManager, LifecycleServer};
+use libinitception::{ApplicationManager, ApplicationServiceClient, LifecycleServer};
 
 use async_trait::async_trait;
 
@@ -41,8 +40,8 @@ use ttrpc::r#async::Server;
 use std::os::unix::io::IntoRawFd;
 use std::sync::Arc;
 
-use libinitception::initrc;
 use crate::servers::lifecycle::LifecycleServerImpl;
+use libinitception::initrc;
 
 struct ServiceManager {
     inner: InnerReference,
@@ -121,7 +120,10 @@ impl ApplicationManager for ServiceManager {
                 let inner = self.inner.read().unwrap();
                 let tx = inner.tx.lock().unwrap();
 
-                if tx.send(TaskMessage::ProcessPaused(inner.service_index, None)).is_err() {
+                if tx
+                    .send(TaskMessage::ProcessPaused(inner.service_index, None))
+                    .is_err()
+                {
                     panic!("Receiver dropped");
                 }
                 Ok(application_interface::StateChangedResponse::default())
@@ -140,7 +142,10 @@ impl ApplicationManager for ServiceManager {
 
                 let tx = inner.tx.lock().unwrap();
 
-                if tx.send(TaskMessage::ProcessRunning(inner.service_index, None)).is_err() {
+                if tx
+                    .send(TaskMessage::ProcessRunning(inner.service_index, None))
+                    .is_err()
+                {
                     panic!("Receiver dropped");
                 }
                 Ok(application_interface::StateChangedResponse::default())
@@ -149,7 +154,10 @@ impl ApplicationManager for ServiceManager {
                 let inner = self.inner.read().unwrap();
                 let tx = inner.tx.lock().unwrap();
 
-                if tx.send(TaskMessage::ProcessStopped(inner.service_index, None)).is_err() {
+                if tx
+                    .send(TaskMessage::ProcessStopped(inner.service_index, None))
+                    .is_err()
+                {
                     panic!("Receiver dropped");
                 }
                 Ok(application_interface::StateChangedResponse::default())
@@ -157,7 +165,11 @@ impl ApplicationManager for ServiceManager {
         }
     }
 
-    async fn get_property(&self, _ctx: &::ttrpc::r#async::TtrpcContext, req: application_interface::GetPropertyRequest) -> ::ttrpc::Result<application_interface::GetPropertyResponse> {
+    async fn get_property(
+        &self,
+        _ctx: &::ttrpc::r#async::TtrpcContext,
+        req: application_interface::GetPropertyRequest,
+    ) -> ::ttrpc::Result<application_interface::GetPropertyResponse> {
         let inner = self.inner.read().unwrap();
         let mut response = application_interface::GetPropertyResponse::new();
         if let Ok(context) = inner.context.read() {
@@ -173,13 +185,16 @@ impl ApplicationManager for ServiceManager {
         Ok(response)
     }
 
-    async fn set_property(&self, _ctx: &::ttrpc::r#async::TtrpcContext, req: application_interface::SetPropertyRequest) -> ::ttrpc::Result<application_interface::SetPropertyResponse> {
-
+    async fn set_property(
+        &self,
+        _ctx: &::ttrpc::r#async::TtrpcContext,
+        req: application_interface::SetPropertyRequest,
+    ) -> ::ttrpc::Result<application_interface::SetPropertyResponse> {
         let inner = self.inner.read().unwrap();
         let mut response = application_interface::SetPropertyResponse::new();
 
         if let Ok(mut context) = inner.context.write() {
-        // special handling for read only strings
+            // special handling for read only strings
             if req.key.starts_with("ro.") {
                 // return error if the key already exists
                 if context.contains_property(&req.key) {
@@ -198,7 +213,14 @@ impl ApplicationManager for ServiceManager {
                 } else {
                     //TODO: Change property notification
                     let tx = inner.tx.lock().unwrap();
-                    if tx.send(TaskMessage::PropertyChanged(inner.service_index, key_copy, copy)).is_err() {
+                    if tx
+                        .send(TaskMessage::PropertyChanged(
+                            inner.service_index,
+                            key_copy,
+                            copy,
+                        ))
+                        .is_err()
+                    {
                         panic!("Receiver dropped");
                     }
                 }
@@ -211,7 +233,11 @@ impl ApplicationManager for ServiceManager {
         Ok(response)
     }
 
-    async fn add_property_filter(&self, _ctx: &::ttrpc::r#async::TtrpcContext, req: application_interface::AddPropertyFilterRequest) -> ::ttrpc::Result<application_interface::AddPropertyFilterResponse> {
+    async fn add_property_filter(
+        &self,
+        _ctx: &::ttrpc::r#async::TtrpcContext,
+        req: application_interface::AddPropertyFilterRequest,
+    ) -> ::ttrpc::Result<application_interface::AddPropertyFilterResponse> {
         debug!("Adding property filter: {}", &req.regex);
         let inner = self.inner.read().unwrap();
         let mut response = application_interface::AddPropertyFilterResponse::new();
@@ -270,8 +296,7 @@ pub async fn manage_a_service(
             orig_context,
             tx_arc,
             service_index,
-        ))
-            as Box<dyn LifecycleServer + Send + Sync>;
+        )) as Box<dyn LifecycleServer + Send + Sync>;
         let service = Arc::new(service);
         let service = libinitception::create_lifecycle_server(service);
         Some(service)
@@ -320,7 +345,10 @@ pub async fn manage_a_service(
 
         // wait for a "reasonable time" for the application to connect back.  The application must
         // load the server before connecting back so the client we launch here does not fail.
-        let app_client_server =  if timeout(Duration::from_millis(2000), app_running_signal_rx).await.is_err() {
+        let app_client_server = if timeout(Duration::from_millis(2000), app_running_signal_rx)
+            .await
+            .is_err()
+        {
             error!("Application did not connect within 2000 milliseconds");
             None
         } else {
@@ -332,9 +360,9 @@ pub async fn manage_a_service(
             let runtime_entity = runtime_entity.as_deref_mut().unwrap();
 
             if let Some(fd) = runtime_entity.take_client_fd() {
-                let (server,proxy) 
-                    = ApplicationServiceWrapper::new_pair(ApplicationServiceClient::new(Client::new(
-                        fd.into_raw_fd())));
+                let (server, proxy) = ApplicationServiceWrapper::new_pair(
+                    ApplicationServiceClient::new(Client::new(fd.into_raw_fd())),
+                );
                 maybe_server = Some(server);
                 runtime_entity.set_service_proxy(proxy);
             }
@@ -342,9 +370,7 @@ pub async fn manage_a_service(
         };
 
         if let Some(mut server) = app_client_server {
-            tokio::spawn(async move {
-                server.serve().await
-            });
+            tokio::spawn(async move { server.serve().await });
         }
 
         debug!("Application server waiting for termination signal");

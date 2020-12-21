@@ -1,2 +1,2 @@
-pub mod lifecycle;
 pub mod application_client;
+pub mod lifecycle;

@@ -14,7 +14,6 @@
 extern crate tokio;
 extern crate unshare;
 
-
 use std::error::Error;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
@@ -26,15 +25,13 @@ use tokio::time::delay_for;
 use tracing::{debug, error, info};
 //use uuid;
 
-
-
 // For rtnetlink
 //use tokio::stream::TryStreamExt;
 
-use libinitception::config::ApplicationConfig;
 use crate::common::*;
 use crate::context::{Context, ContextReference};
 use crate::device;
+use libinitception::config::ApplicationConfig;
 
 use crate::server;
 use crate::sysfs_walker;
@@ -141,7 +138,10 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
         }
 
         for service_idx in initial_services {
-            if tx.send(TaskMessage::RequestLaunch(service_idx, None)).is_err() {
+            if tx
+                .send(TaskMessage::RequestLaunch(service_idx, None))
+                .is_err()
+            {
                 panic!("Receiver dropped");
             }
         }
@@ -156,8 +156,6 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
     // Needed for the signal function below
     let tx = tx_orig.clone();
 
-
-
     // This is the main dispatch function for initception
     tokio::task::spawn_blocking(move || {
         while let Ok(msg) = rx.recv() {
@@ -171,19 +169,18 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                     //network::configure_network_interface(ip, String::from("lo")).await
                     debug!("Loopback network set up (skipped)");
                 }),
-                TaskMessage::ProcessRunning(id,_notify) => tokio::spawn(async move {
+                TaskMessage::ProcessRunning(id, _notify) => tokio::spawn(async move {
                     debug!("Process Running {:?}", id);
                     let deps = cloned_context.read().unwrap().get_immediate_dependants(id);
                     for dep in deps {
                         debug!("Launching dep {:?}", dep);
 
-                        if tx.send(TaskMessage::RequestLaunch(dep,None)).is_err() {
+                        if tx.send(TaskMessage::RequestLaunch(dep, None)).is_err() {
                             panic!("Receiver dropped");
                         }
                     }
                 }),
-                TaskMessage::ProcessLaunched(id,_notify) => tokio::spawn(async move {
-                    
+                TaskMessage::ProcessLaunched(id, _notify) => tokio::spawn(async move {
                     debug!("Process launched {:?}", id);
                     let deps = cloned_context
                         .read()
@@ -219,13 +216,13 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                 }),
                 TaskMessage::RequestResume(id, notify) => {
                     let context = context.clone();
-                    debug!("TASKMESSAGE:RequestResume {:?}",id);
+                    debug!("TASKMESSAGE:RequestResume {:?}", id);
 
                     tokio::spawn(async move {
-                        debug!("Request stop for {:?}",id);
-                        
-                        if let Err(ret) = crate::context::resume_service(context,id).await {
-                            error!("Resume service failed : {}",ret);
+                        debug!("Request stop for {:?}", id);
+
+                        if let Err(ret) = crate::context::resume_service(context, id).await {
+                            error!("Resume service failed : {}", ret);
                         } else {
                             debug!("Success resuming service");
                         }
@@ -234,16 +231,16 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                             let _ = notify.send(TaskReply::Ok);
                         }
                     })
-                },
+                }
                 TaskMessage::RequestPause(id, notify) => {
                     let context = context.clone();
-                    debug!("TASKMESSAGE:RequestPause {:?}",id);
+                    debug!("TASKMESSAGE:RequestPause {:?}", id);
 
                     tokio::spawn(async move {
-                        debug!("Request stop for {:?}",id);
-                        
-                        if let Err(ret) = crate::context::pause_service(context,id).await {
-                            error!("Pause service failed : {}",ret);
+                        debug!("Request stop for {:?}", id);
+
+                        if let Err(ret) = crate::context::pause_service(context, id).await {
+                            error!("Pause service failed : {}", ret);
                         } else {
                             debug!("Success pausing service");
                         }
@@ -252,18 +249,17 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                             let _ = notify.send(TaskReply::Ok);
                         }
                     })
-                },
+                }
                 TaskMessage::RequestStop(id, notify) => {
                     let context = context.clone();
-                    debug!("TASKMESSAGE:RequestStop {:?}",id);
+                    debug!("TASKMESSAGE:RequestStop {:?}", id);
 
                     tokio::spawn(async move {
-
-                        debug!("Request stop for {:?}",id);
+                        debug!("Request stop for {:?}", id);
                         let _timeout = std::time::Duration::from_secs(2);
-                        
-                        if let Err(ret) = crate::context::kill_service(context,id).await {
-                            error!("Kill service failed : {}",ret);
+
+                        if let Err(ret) = crate::context::kill_service(context, id).await {
+                            error!("Kill service failed : {}", ret);
                         } else {
                             debug!("Success killing service");
                         }
@@ -272,8 +268,7 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                             let _ = notify.send(TaskReply::Ok);
                         }
                     })
-                   
-                    },
+                }
                 TaskMessage::RequestLaunch(id, mut notify) => {
                     let server_context = context.clone();
                     let (notify_type, name) = {
@@ -295,10 +290,7 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                             //TODO: Handle error
                             error!("Error launching service : {:?} due to {}", id, err);
                         } else {
-                            debug!(
-                                "launched service : {:?}",
-                                name.unwrap(),
-                            );
+                            debug!("launched service : {:?}", name.unwrap(),);
 
                             // notify success if someone has requested for it
                             if let Some(tx) = notify.take() {
@@ -308,7 +300,7 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                             // before we mark it as running.
 
                             let msg = if notify_type {
-                                TaskMessage::ProcessLaunched(id,notify)
+                                TaskMessage::ProcessLaunched(id, notify)
                             } else {
                                 TaskMessage::ProcessRunning(id, notify)
                             };
@@ -355,10 +347,9 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                         }
                     }
                 }),
-                TaskMessage::PropertyChanged(unit_index, key, value) => tokio::spawn(async move {
-                    debug!("Property changed  {}:{}", &key,&value);
+                TaskMessage::PropertyChanged(_unit_index, key, value) => tokio::spawn(async move {
+                    debug!("Property changed  {}:{}", &key, &value);
                 }),
-                
             };
         }
     });

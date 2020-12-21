@@ -20,8 +20,8 @@ pub const EVENT_APPLICATION_STOPPED: &str = "int.lifecycle.event.application.sto
 pub const EVENT_APPLICATION_STARTED: &str = "int.lifecycle.event.application.started";
 
 // An application has missed a heartbeat
-pub const EVENT_APPLICATION_HEARTBEAT_MISSED: &str = "int.lifecycle.event.application.watchdog.missed";
+pub const EVENT_APPLICATION_HEARTBEAT_MISSED: &str =
+    "int.lifecycle.event.application.watchdog.missed";
 
 // An application has crashed
 pub const EVENT_APPLICATION_CRASHED: &str = "int.lifecycle.event.application.crashed";
-

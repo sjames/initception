@@ -14,8 +14,8 @@
 /// Configure the network.
 ///
 use crate::context::{ContextReference, RuntimeEntity, ServiceIndex, UnitStatus};
-use libinitception::initrc::{Unit, UnitType};
 use ipnetwork::IpNetwork;
+use libinitception::initrc::{Unit, UnitType};
 use rtnetlink::new_connection;
 use tokio::io::{self, AsyncBufReadExt, ReadHalf};
 use tracing::{debug, error, info, warn};

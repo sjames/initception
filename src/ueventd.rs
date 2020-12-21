@@ -15,7 +15,6 @@ use crate::common::{DeviceChangeInfo, TaskMessage};
 use crate::userids;
 use crate::uventrc_parser;
 
-
 use netlink_sys::{Protocol, Socket, SocketAddr};
 use nix::sys::stat::makedev;
 use nix::sys::stat::{mknod, mode_t, Mode, SFlag};

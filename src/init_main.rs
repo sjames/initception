@@ -14,10 +14,10 @@
 use getopts::Options;
 use std::env;
 
-use libinitception::config::{ApplicationConfig, CreateParams, RunParams};
 use crate::initception;
 use crate::sysfs_walker;
 use crate::zygote;
+use libinitception::config::{ApplicationConfig, CreateParams, RunParams};
 
 use tracing::{debug, error, info};
 
