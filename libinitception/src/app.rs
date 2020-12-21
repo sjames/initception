@@ -171,24 +171,29 @@ impl ApplicationClient {
     }
 }
 
-struct ApplicationServerInner<P: FnMut(), R: FnMut(), S: FnMut(), C: FnMut(&str)> {
+struct ApplicationServerInner<P: FnMut(), R: FnMut(), S: FnMut(), C: FnMut(&str), T:FnMut(String,String), E:FnMut(String,String)> {
     on_pause: Option<P>,
     on_resume: Option<R>,
     on_stop: Option<S>,
     on_session_changed: Option<C>,
+    on_property_changed: Option<T>,
+    on_event : Option<E>,
 }
 
-pub struct ApplicationServer<P: FnMut(), R: FnMut(), S: FnMut(), C: FnMut(&str)> {
-    inner: std::sync::Arc<std::sync::RwLock<ApplicationServerInner<P, R, S, C>>>,
+pub struct ApplicationServer<P: FnMut(), R: FnMut(), S: FnMut(), C: FnMut(&str), T:FnMut(String, String), E:FnMut(String,String) > {
+    inner: std::sync::Arc<std::sync::RwLock<ApplicationServerInner<P, R, S, C, T, E>>>,
 }
 
 #[async_trait]
-impl<P, R, S, C> app_int::ApplicationService for ApplicationServer<P, R, S, C>
+impl<P, R, S, C, T, E> app_int::ApplicationService for ApplicationServer<P, R, S, C, T,E>
 where
     P: FnMut() + Sync + Send,
     R: FnMut() + Sync + Send,
     S: FnMut() + Sync + Send,
     C: FnMut(&str) + Sync + Send,
+    T: FnMut(String,String) + Sync + Send,
+    E: FnMut(String,String) + Sync + Send,
+
 {
     async fn pause(
         &self,
@@ -258,16 +263,51 @@ where
             )))
         }
     }
+
+    async fn property_changed(&self, _ctx: &::ttrpc::r#async::TtrpcContext, mut req: crate::src_gen::application_interface::PropertyChangedRequest) -> ::ttrpc::Result<crate::src_gen::application_interface::PropertyChangedResponse> {
+        let mut inner = self.inner.write().unwrap();
+        if let Some(on_property_changed) = &mut inner.on_property_changed {
+            on_property_changed(req.take_key(), req.take_value());
+            Ok(
+                crate::src_gen::application_interface::PropertyChangedResponse::default(
+                ),
+            )
+        } else {
+            Err(ttrpc::Error::RpcStatus(ttrpc::get_status(
+                ttrpc::Code::NOT_FOUND,
+                "/grpc.ApplicationService/property_changed is not supported".to_string(),
+            )))
+        }
+    }
+
+    async fn event(&self, _ctx: &::ttrpc::r#async::TtrpcContext, mut req: super::application_interface::EventRequest) -> ::ttrpc::Result<super::application_interface::EventResponse> {
+        let mut inner = self.inner.write().unwrap();
+        if let Some(on_event) = &mut inner.on_event {
+            on_event(req.take_key(), req.take_value());
+            Ok(
+                crate::src_gen::application_interface::EventResponse::default(
+                ),
+            )
+        } else {
+            Err(ttrpc::Error::RpcStatus(ttrpc::get_status(
+                ttrpc::Code::NOT_FOUND,
+                "/grpc.ApplicationService/event is not supported".to_string(),
+            )))
+        } 
+    }
 }
 
-impl<'a, P, R, S, C> ApplicationServer<P, R, S, C>
+impl<'a, P, R, S, C, T, E> ApplicationServer<P, R, S, C,T,E>
 where
     P: FnMut() + Send + Sync + 'a,
     R: FnMut() + Send + Sync + 'a,
     S: FnMut() + Send + Sync + 'a,
     C: FnMut(&str) + Send + Sync + 'a,
+    T: FnMut(String, String) + Send + Sync + 'a,
+    E: FnMut(String, String) + Send + Sync + 'a,
+
 {
-    pub fn new(on_pause: P, on_resume: R, on_stop: S, on_session_changed: C) -> Self {
+    pub fn new(on_pause: P, on_resume: R, on_stop: S, on_session_changed: C, on_property_changed:T, on_event:E) -> Self {
         ApplicationServer {
             inner: {
                 std::sync::Arc::new(std::sync::RwLock::new(ApplicationServerInner {
@@ -275,23 +315,30 @@ where
                     on_resume: Some(on_resume),
                     on_stop: Some(on_stop),
                     on_session_changed: Some(on_session_changed),
+                    on_property_changed: Some(on_property_changed),
+                    on_event : Some(on_event),
                 }))
             },
         }
     }
 
-    pub fn get_server<'b>(on_pause: P, on_resume: R, on_stop: S, on_session_changed: C) -> Server
+    pub fn get_server<'b>(on_pause: P, on_resume: R, on_stop: S, on_session_changed: C, on_property_changed:T, on_event:E) -> Server
     where
         P: FnMut() + Send + Sync + 'static,
         R: FnMut() + Send + Sync + 'static,
         S: FnMut() + Send + Sync + 'static,
         C: FnMut(&str) + Send + Sync + 'static,
+        T: FnMut(String, String) + Send + Sync + 'static,
+        E: FnMut(String, String) + Send + Sync + 'static,
+
     {
         let service = Box::new(ApplicationServer::new(
             on_pause,
             on_resume,
             on_stop,
             on_session_changed,
+            on_property_changed,
+            on_event,
         ))
             as Box<
                 dyn crate::src_gen::application_interface_ttrpc::ApplicationService
