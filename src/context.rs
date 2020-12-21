@@ -15,7 +15,7 @@ use petgraph::prelude::NodeIndex;
 use petgraph::Direction;
 use petgraph::Graph;
 
-use crate::initrc::{load_config, Service, ServiceType, Unit, UnitType};
+use libinitception::initrc::{load_config, Service, ServiceType, Unit, UnitType};
 use crate::mount;
 use crate::network;
 use crate::process::{launch_service, stop_service};
@@ -24,11 +24,10 @@ use std::os::unix::net::UnixStream;
 use tracing::{debug, info, warn};
 use unshare::ChildEvent;
 
-
-
 use crate::servers::application_client::{ApplicationServiceProxy};
 
-use crate::application::config::ApplicationConfig;
+use libinitception::config::ApplicationConfig;
+
 
 use std::time::Instant;
 

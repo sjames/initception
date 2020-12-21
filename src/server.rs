@@ -22,12 +22,16 @@ use tracing::{debug, error, info};
 use crate::common::*;
 use crate::context::{ContextReference, RuntimeEntityReference, ServiceIndex};
 
-use crate::application::src_gen::application_interface;
-use crate::application::src_gen::application_interface_ttrpc;
+//use crate::application::src_gen::application_interface;
+//use crate::application::src_gen::application_interface_ttrpc;
 
 
-use crate::application::src_gen::application_interface_ttrpc::{ApplicationServiceClient};
+//use crate::application::src_gen::application_interface_ttrpc::{ApplicationServiceClient};
 use crate::servers::application_client::{ApplicationServiceWrapper};
+
+use libinitception::application_interface;
+use libinitception::{ApplicationServiceClient, ApplicationManager, LifecycleServer};
+
 use async_trait::async_trait;
 
 use ttrpc::r#async::Client;
@@ -37,7 +41,7 @@ use ttrpc::r#async::Server;
 use std::os::unix::io::IntoRawFd;
 use std::sync::Arc;
 
-use crate::initrc;
+use libinitception::initrc;
 use crate::servers::lifecycle::LifecycleServerImpl;
 
 struct ServiceManager {
@@ -92,7 +96,7 @@ impl ServiceManager {
 }
 
 #[async_trait]
-impl application_interface_ttrpc::ApplicationManager for ServiceManager {
+impl ApplicationManager for ServiceManager {
     async fn heartbeat(
         &self,
         _ctx: &::ttrpc::r#async::TtrpcContext,
@@ -180,10 +184,10 @@ pub async fn manage_a_service(
         tx_arc,
         service_index,
         app_running_signal_tx,
-    )) as Box<dyn application_interface_ttrpc::ApplicationManager + Send + Sync>;
+    )) as Box<dyn ApplicationManager + Send + Sync>;
 
     let service = Arc::new(service);
-    let service = application_interface_ttrpc::create_application_manager(service);
+    let service = libinitception::create_application_manager(service);
 
     // If the service is a Lifecycle manager, then launch the server for it.
     let lifecycle_server = if let Some(initrc::ServiceType::LifecycleManager) = service_type {
@@ -195,9 +199,9 @@ pub async fn manage_a_service(
             tx_arc,
             service_index,
         ))
-            as Box<dyn application_interface_ttrpc::LifecycleServer + Send + Sync>;
+            as Box<dyn LifecycleServer + Send + Sync>;
         let service = Arc::new(service);
-        let service = application_interface_ttrpc::create_lifecycle_server(service);
+        let service = libinitception::create_lifecycle_server(service);
         Some(service)
     } else {
         None

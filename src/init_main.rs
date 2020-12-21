@@ -14,7 +14,7 @@
 use getopts::Options;
 use std::env;
 
-use crate::application::config::{ApplicationConfig, CreateParams, RunParams};
+use libinitception::config::{ApplicationConfig, CreateParams, RunParams};
 use crate::initception;
 use crate::sysfs_walker;
 use crate::zygote;

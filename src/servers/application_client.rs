@@ -1,9 +1,10 @@
 
-use crate::application::src_gen::{application_interface_ttrpc::ApplicationServiceClient, application_interface};
+//use crate::application::src_gen::{application_interface_ttrpc::ApplicationServiceClient, application_interface};
 use thiserror::Error;
 use std::time::Duration;
 
-
+use libinitception::application_interface;
+use libinitception::ApplicationServiceClient;
 
 use tokio::sync::mpsc::{Sender, Receiver};
 

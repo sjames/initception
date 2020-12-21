@@ -12,7 +12,7 @@
 */
 #[allow(clippy::all)]
 use crate::context::{ContextReference, RuntimeEntity, ServiceIndex, UnitStatus};
-use crate::initrc::{Unit, UnitType};
+use libinitception::initrc::{Unit, UnitType};
 use nix::mount::{mount, MsFlags};
 
 use tracing::{debug, error, info, warn};

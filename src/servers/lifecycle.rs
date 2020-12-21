@@ -15,8 +15,14 @@ use std::time::Duration;
 use crate::common::*;
 use crate::context::{ContextReference, ServiceIndex, RunningState};
 
-use crate::application::src_gen::application_interface::{self,ApplicationStatus};
-use crate::application::src_gen::application_interface_ttrpc;
+use libinitception::application_interface::{self,ApplicationStatus};
+//use crate::application::src_gen::application_interface_ttrpc;
+
+use libinitception::{ApplicationManager,
+    LifecycleServer,
+    create_application_manager, 
+    create_lifecycle_server,
+};
 
 use async_trait::async_trait;
 use std::sync::Arc;
@@ -61,7 +67,7 @@ impl LifecycleServerImpl {
 }
 
 #[async_trait]
-impl application_interface_ttrpc::LifecycleServer for LifecycleServerImpl {
+impl LifecycleServer for LifecycleServerImpl {
     async fn get_applications(
         &self,
         _ctx: &ttrpc::r#async::TtrpcContext,

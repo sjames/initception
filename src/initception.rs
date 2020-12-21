@@ -31,7 +31,7 @@ use tracing::{debug, error, info};
 // For rtnetlink
 //use tokio::stream::TryStreamExt;
 
-use crate::application::config::ApplicationConfig;
+use libinitception::config::ApplicationConfig;
 use crate::common::*;
 use crate::context::{Context, ContextReference};
 use crate::device;

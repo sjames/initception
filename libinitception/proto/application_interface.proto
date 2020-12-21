@@ -1,0 +1,274 @@
+/*
+    Copyright 2020 Sojan James
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+        http://www.apache.org/licenses/LICENSE-2.0
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+*/
+
+syntax = "proto3";
+
+package grpc;
+
+service ApplicationService {
+    rpc pause(PauseRequest) returns (PauseResponse);
+    rpc resume(ResumeRequest) returns (ResumeResponse);
+    rpc stop(StopRequest) returns (StopResponse);
+    rpc session_changed(SessionChangedRequest) returns (SessionChangedResponse);
+    rpc property_changed(PropertyChangedRequest) returns (PropertyChangedResponse);
+    rpc event(EventRequest) returns (EventResponse);
+}
+
+message EventRequest {
+    string key = 1;
+    string value = 2;
+}
+
+message EventResponse {
+    string key = 1;
+    string value = 2;
+}
+
+enum ReturnStatus {
+    OK = 0;
+    AGAIN = 1;
+    ERROR = 2;
+ }
+
+message PauseRequest {
+    int32 timeout_ms = 1; // default timeout of 2000mS
+}
+
+message PauseResponse {
+    ReturnStatus status = 1;
+}
+
+enum ResumeReason {
+    DEFAULT = 0;  
+    SUSPEND = 1; // Resumed after suspend. 
+}
+
+message ResumeRequest {
+    int32 timeout_ms = 1; // default timeout of 2000mS
+    ResumeReason reason = 2;
+}
+
+message ResumeResponse {
+    ReturnStatus status = 1;
+}
+
+enum StopReason {
+    DEFAULT = 0;  
+    SHUTDOWN = 1; // Stopping due to normal shutdown
+    FAST_SHUTDOWN = 2; // Stopping due to abnormal shutdown
+}
+
+message StopRequest {
+    int32 timeout_ms = 1; 
+    StopReason reason = 2;
+}
+
+message StopResponse {
+    ReturnStatus status = 1;
+}
+
+message SessionChangedRequest {
+    string session_name = 1;
+}
+
+message SessionChangedResponse {
+    ReturnStatus status = 1;
+}
+
+message PropertyChangedRequest {
+    string key = 1;
+    string value = 2;
+}
+
+message PropertyChangedResponse {
+    
+}
+
+
+message Timestamp {
+    uint64 seconds = 1;
+    uint32 nanos = 2;
+}
+
+message HeartbeatRequest {
+    Timestamp timestamp = 1;
+}
+message HeartbeatResponse{}
+
+message StateChangedRequest{
+    enum State {
+        Running = 0;
+        Stopped = 1;
+        Paused =  2;
+    }
+    State state = 1;
+}
+message StateChangedResponse {}
+
+message GetPropertyRequest {
+    string key = 1;
+}
+
+message GetPropertyResponse {
+    ReturnStatus status = 1;
+    string value = 2;
+}
+
+enum SetPropertyOptions {
+    NONE = 0;
+    // if this flag is set and the property is created by this call. it is set read-only
+    // The call will fail if the property already exists.
+    CREATE_READ_ONLY = 1; 
+}
+
+message SetPropertyRequest {
+    string key = 1;
+    string value = 2;
+    SetPropertyOptions option = 3;
+}
+
+message SetPropertyResponse {
+    ReturnStatus status = 1;
+}
+
+message AddPropertyFilterRequest {
+    string regex = 1;
+}
+
+message AddPropertyFilterResponse {
+    ReturnStatus status = 1;
+}
+
+service ApplicationManager {
+    rpc heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+    rpc statechanged(StateChangedRequest) returns (StateChangedResponse);
+    rpc get_property(GetPropertyRequest) returns (GetPropertyResponse);
+    rpc set_property(SetPropertyRequest) returns (SetPropertyResponse);
+    rpc add_property_filter(AddPropertyFilterRequest) returns (AddPropertyFilterResponse);
+}
+
+/*
+ Interface used by the startup controller. The startup controller is an application
+ with special privileges.
+*/
+service LifecycleServer {
+    rpc get_applications(GetApplicationsRequest) returns (GetApplicationsResponse);
+    rpc get_application_status(GetApplicationStatusRequest) returns (GetApplicationStatusResponse);
+    rpc start_application(StartApplicationRequest) returns (StartApplicationResponse);
+    rpc restart_application(RestartApplicationRequest) returns (RestartApplicationResponse);
+    rpc pause_application(PauseApplicationRequest) returns (PauseApplicationResponse);
+    rpc resume_application(ResumeApplicationRequest) returns (ResumeApplicationResponse);
+    rpc stop_application(StopApplicationRequest) returns (StopApplicationResponse);
+    rpc prepare_system_freeze(PrepareFreezeRequest) returns (PrepareFreezeResponse);
+    rpc prepare_system_shutdown(PrepareShutdownRequest) returns (PrepareShutdownResponse);
+    rpc shutdown_system(ShutdownRequest) returns (ShutdownResponse);
+}
+
+message GetApplicationsRequest {
+
+}
+
+message GetApplicationsResponse {
+    repeated string name = 1;
+}
+
+message GetApplicationStatusRequest {
+    string name = 1;
+}
+
+enum ApplicationStatus {
+    Unknown = 0;
+    Stopped = 1;
+    Running = 2;
+    Paused  = 3;
+}
+
+message GetApplicationStatusResponse {
+    ApplicationStatus status = 1;
+}
+
+message StartApplicationRequest {
+    string name = 1;
+}
+
+message StartApplicationResponse {
+    ReturnStatus status = 1;
+    uint32 time_taken_ms = 2;
+}
+
+message RestartApplicationRequest {
+    string name = 1;
+}
+
+message RestartApplicationResponse {
+    ReturnStatus status = 1;
+    uint32 time_taken_ms = 2;
+}
+
+message PauseApplicationRequest {
+    string name = 1;
+}
+
+message PauseApplicationResponse {
+    ReturnStatus status = 1;
+    uint32 time_taken_ms = 2;
+}
+
+message ResumeApplicationRequest {
+    string name = 1;
+}
+
+message ResumeApplicationResponse {
+    ReturnStatus status = 1;
+    uint32 time_taken_ms = 2;
+}
+
+message StopApplicationRequest {
+    string name = 1;
+}
+
+message StopApplicationResponse {
+    ReturnStatus status = 1;
+    uint32 time_taken_ms = 2;
+}
+
+enum ShutdownType {
+    Normal = 0;
+    Fast = 1;
+    Emergency = 2;
+}
+
+message PrepareFreezeRequest {
+    ShutdownType shutdown_type = 1;
+}
+
+message PrepareFreezeResponse {
+    ReturnStatus status = 1;
+}
+
+message PrepareShutdownRequest {
+    ShutdownType shutdown_type = 1;
+}
+
+message PrepareShutdownResponse {
+    ReturnStatus status = 1;
+}
+
+message ShutdownRequest {
+    ReturnStatus status = 1;
+}
+
+
+message ShutdownResponse {
+    ReturnStatus status = 1;
+}

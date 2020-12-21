@@ -17,7 +17,7 @@ Use unshare to launch processes or containers.
 */
 
 use crate::context::{RunningState, RuntimeEntity, RuntimeEntityReference};
-use crate::initrc::{Cap, Ns, Type};
+use libinitception::initrc::{Cap, Ns, Type};
 
 use unshare::{Capability, Fd, Namespace};
 
@@ -26,7 +26,7 @@ use std::os::unix::net::UnixStream;
 
 use tracing::{debug, info, error};
 
-use crate::application::app::{NOTIFY_APP_CLIENT_FD, NOTIFY_APP_SERVER_FD};
+use libinitception::app::{NOTIFY_APP_CLIENT_FD, NOTIFY_APP_SERVER_FD};
 
 fn create_self_command(name: &str) -> unshare::Command {
     let path = std::fs::read_link("/proc/self/exe").expect("Unable to read /proc/self/exe");

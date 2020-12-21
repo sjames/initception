@@ -29,7 +29,7 @@ pub mod device;
 pub mod error;
 pub mod init_main;
 pub mod initception;
-pub mod initrc;
+//pub mod initrc;
 pub mod launcher;
 pub mod mount;
 pub mod network;
