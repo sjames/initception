@@ -1,6 +1,7 @@
 pub mod app;
 pub mod config;
 pub mod initrc;
+pub mod application_events;
 mod src_gen;
 
 pub use src_gen::application_interface;
