@@ -19,6 +19,7 @@ enum ApplicationRequest {
     SessionChanged(OneShotSender<ApplicationResponse>, String),
     // An event with a key and value
     Event(OneShotSender<ApplicationResponse>,String, String),
+    Property(OneShotSender<ApplicationResponse>,String, String),
     ServerQuit,
 }
 
@@ -69,6 +70,17 @@ impl ApplicationServiceProxy {
     pub async fn event(&mut self, key:&str, value:&str) -> Result<(),ServiceProxyError> {
         let (tx,rx) = tokio::sync::oneshot::channel::<ApplicationResponse>();
         if self.0.send(ApplicationRequest::Event(tx,String::from(key), String::from(value))).await.is_err() {
+            Err(ServiceProxyError::Disconnected)
+        } else if let Ok(_ret) = rx.await {
+            Ok(())
+        } else {
+            Err(ServiceProxyError::Disconnected)
+        }
+    }
+
+    pub async fn property_changed(&mut self, key:&str, value:&str) -> Result<(),ServiceProxyError> {
+        let (tx,rx) = tokio::sync::oneshot::channel::<ApplicationResponse>();
+        if self.0.send(ApplicationRequest::Property(tx,String::from(key), String::from(value))).await.is_err() {
             Err(ServiceProxyError::Disconnected)
         } else if let Ok(_ret) = rx.await {
             Ok(())
@@ -129,6 +141,14 @@ impl ApplicationServiceWrapper {
                 ApplicationRequest::Event(tx,key,value) => {
                     let timeout = Duration::from_millis(1000);
                     if let Err(e) = self.event((key,value), timeout).await {
+                        let _e = tx.send(ApplicationResponse::Error(e));
+                    } else {
+                        let _e = tx.send(ApplicationResponse::Ok);
+                    }
+                },
+                ApplicationRequest::Property(tx,key,value) => {
+                    let timeout = Duration::from_millis(1000);
+                    if let Err(e) = self.property_changed((key,value), timeout).await {
                         let _e = tx.send(ApplicationResponse::Error(e));
                     } else {
                         let _e = tx.send(ApplicationResponse::Ok);
@@ -210,10 +230,10 @@ impl ApplicationServiceWrapper {
         }
     }
 
-    async fn property_changed(&mut self,  prop: (&str,&str), timeout: Duration) -> Result<(),ServiceProxyError> {
+    async fn property_changed(&mut self,  prop: (String,String), timeout: Duration) -> Result<(),ServiceProxyError> {
         let mut req = application_interface::PropertyChangedRequest::new();
-        req.set_key(String::from(prop.0));
-        req.set_value(String::from(prop.1));
+        req.set_key(prop.0);
+        req.set_value(prop.1);
 
         if let Ok(_res) = self.0.property_changed(&req, timeout.as_nanos() as i64).await {
             Ok(())
