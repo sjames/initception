@@ -355,6 +355,10 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                         }
                     }
                 }),
+                TaskMessage::PropertyChanged(unit_index, key, value) => tokio::spawn(async move {
+                    debug!("Property changed  {}:{}", &key,&value);
+                }),
+                
             };
         }
     });

@@ -123,6 +123,44 @@ impl ApplicationClient {
         let _reply = self.manager_proxy.heartbeat(&req, 0).await;
     }
 
+    pub async fn get_property(&mut self, key: String ) -> Option<String> {
+        let mut req = application_interface::GetPropertyRequest::new();
+
+        req.set_key(key);
+        if let Ok(mut reply) = self.manager_proxy.get_property(&req, 0).await {
+            Some(reply.take_value())
+        } else {
+            None
+        }
+    }
+
+    pub async fn set_property(&mut self, key: String, value: String ) -> Result<(),application_interface::ReturnStatus> {
+        let mut req = application_interface::SetPropertyRequest::new();
+        req.set_key(key);
+        req.set_value(value);
+        if let Ok(reply) = self.manager_proxy.set_property(&req, 0).await {
+            match reply.get_status() {
+                application_interface::ReturnStatus::OK => Ok(()),
+                _ => Err(reply.get_status()),
+            }
+        } else {
+            Err(application_interface::ReturnStatus::ERROR)
+        }
+    }
+
+    pub async fn add_property_filter(&mut self, key_match: String) -> Result<(),application_interface::ReturnStatus> {
+        let mut req = application_interface::AddPropertyFilterRequest::new();
+        req.set_regex(key_match);
+        
+        if let Ok(reply) = self.manager_proxy.add_property_filter(&req, 0).await {
+            match reply.get_status() {
+                application_interface::ReturnStatus::OK => Ok(()),
+                _ => Err(reply.get_status()),
+            }
+        } else {
+            Err(application_interface::ReturnStatus::ERROR)
+        }
+    }
     // The following functions are only available for the lifecycle manager
     pub async fn get_applications(&mut self) -> Option<Vec<String>> {
         let req = application_interface::GetApplicationsRequest::new();

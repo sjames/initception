@@ -52,6 +52,7 @@ async-trait = "0.1.31"
 # Use the forked ttrpc-rust which supports running over a prec-connected socket.
 ttrpc = { git = "https://github.com/sjames/ttrpc-rust.git", features = ["async"] }
 thiserror = "1.0"
+regex = "1.4"
 
 libinitception = { path="./libinitception"}
 

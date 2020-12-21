@@ -45,6 +45,7 @@ pub enum TaskMessage {
     UeventReady,                     // The Uevent task is ready to listen for events
     DeviceChanged(DeviceChangeInfo), // a device has been added
     UnitSuccess(ServiceIndex),       // A unit was successfully executed
+    PropertyChanged(ServiceIndex,String,String), // property changed by a service
 }
 
 pub enum DeviceChangeInfo {

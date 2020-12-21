@@ -156,6 +156,78 @@ impl ApplicationManager for ServiceManager {
             }
         }
     }
+
+    async fn get_property(&self, _ctx: &::ttrpc::r#async::TtrpcContext, req: application_interface::GetPropertyRequest) -> ::ttrpc::Result<application_interface::GetPropertyResponse> {
+        let inner = self.inner.read().unwrap();
+        let mut response = application_interface::GetPropertyResponse::new();
+        if let Ok(context) = inner.context.read() {
+            if let Some(value) = context.get_property(&req.key) {
+                response.set_value(value);
+                response.set_status(application_interface::ReturnStatus::OK);
+            } else {
+                response.set_status(application_interface::ReturnStatus::ERROR);
+            }
+        } else {
+            response.set_status(application_interface::ReturnStatus::ERROR);
+        }
+        Ok(response)
+    }
+
+    async fn set_property(&self, _ctx: &::ttrpc::r#async::TtrpcContext, req: application_interface::SetPropertyRequest) -> ::ttrpc::Result<application_interface::SetPropertyResponse> {
+
+        let inner = self.inner.read().unwrap();
+        let mut response = application_interface::SetPropertyResponse::new();
+
+        if let Ok(mut context) = inner.context.write() {
+        // special handling for read only strings
+            if req.key.starts_with("ro.") {
+                // return error if the key already exists
+                if context.contains_property(&req.key) {
+                    // key exists, bail out
+                    debug!("Attempt to set read-only key {} ignored", &req.key);
+                    response.set_status(application_interface::ReturnStatus::ERROR);
+                    return Ok(response);
+                }
+            }
+            // ok not a read only property, lets continue
+            let copy = req.value.clone();
+            let key_copy = req.key.clone();
+            if let Some(previous_value) = context.write_property_unchecked(req.key, req.value) {
+                if copy == previous_value {
+                    debug!("Property written but value did not change.  No notifications");
+                } else {
+                    //TODO: Change property notification
+                    let tx = inner.tx.lock().unwrap();
+                    if tx.send(TaskMessage::PropertyChanged(inner.service_index, key_copy, copy)).is_err() {
+                        panic!("Receiver dropped");
+                    }
+                }
+            }
+
+            response.set_status(application_interface::ReturnStatus::OK);
+        } else {
+            response.set_status(application_interface::ReturnStatus::ERROR);
+        }
+        Ok(response)
+    }
+
+    async fn add_property_filter(&self, _ctx: &::ttrpc::r#async::TtrpcContext, req: application_interface::AddPropertyFilterRequest) -> ::ttrpc::Result<application_interface::AddPropertyFilterResponse> {
+        debug!("Adding property filter: {}", &req.regex);
+        let inner = self.inner.read().unwrap();
+        let mut response = application_interface::AddPropertyFilterResponse::new();
+        response.set_status(application_interface::ReturnStatus::ERROR);
+
+        if let Ok(context) = inner.context.read() {
+            if let Some(service) = context.get_service(inner.service_index) {
+                if let Ok(mut service) = service.write() {
+                    if let Ok(_) = service.add_property_filter(req.get_regex()) {
+                        response.set_status(application_interface::ReturnStatus::OK);
+                    }
+                }
+            }
+        }
+        Ok(response)
+    }
 }
 
 /// spawn a server to handle a service. The tx handle is used to send back messages to

@@ -21,15 +21,16 @@ use crate::network;
 use crate::process::{launch_service, stop_service};
 
 use std::os::unix::net::UnixStream;
-use tracing::{debug, info, warn};
+use tracing::{debug, info, warn, error};
 use unshare::ChildEvent;
+use regex::Regex;
 
 use crate::servers::application_client::{ApplicationServiceProxy};
 
 use libinitception::config::ApplicationConfig;
 
-
 use std::time::Instant;
+use std::collections::HashMap;
 
 
 pub enum RuntimeEntity {
@@ -118,6 +119,13 @@ impl RuntimeEntity {
             RuntimeEntity::Unit(_u) => panic!("Attempt to set proxy on Unit"),
         }
     }
+
+    pub fn add_property_filter(&mut self, filter:&str) -> Result<(),()> {
+        match self {
+            RuntimeEntity::Service(s) => s.add_property_filter(filter),
+            RuntimeEntity::Unit(_u) => panic!("Attempt to set proxy on Unit"),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -147,6 +155,7 @@ pub struct SpawnedService {
     pub server_fd: Option<UnixStream>,
     pub appserver_terminate_handler: Option<tokio::sync::oneshot::Sender<()>>,
     last_watchdog: Option<Instant>,
+    property_filters : Option<Vec<Regex>>
 }
 
 impl SpawnedService {
@@ -181,9 +190,44 @@ impl SpawnedService {
     pub fn get_service_type(&self) -> ServiceType {
         self.service.get_service_type()
     }
+
+    pub fn add_property_filter(&mut self, regex_string:&str) -> Result<(),()>{
+        if let Some(filter) = self.property_filters.as_mut() {
+            if let Ok(regex) = Regex::new(regex_string) {
+                filter.push(regex);
+                Ok(())
+            } else {
+                Err(())
+            }
+        } else {
+            Err(())
+        }
+    }
+
+    pub fn check_if_property_match(&self,prop_key:&str) -> bool {
+        if let Some(filters) =  &self.property_filters {
+            for filter in filters {
+               if filter.is_match(prop_key) {
+                   return true;
+               }
+            }
+            return false;
+        } else {
+            false
+        }
+    }
+
+    pub async fn notify_property_change(&mut self, key:&str, value:&str) {
+        if let Some(proxy) = self.proxy.as_mut() {
+            if let Err(_ret) = proxy.property_changed(key, value).await {
+                error!("Error sending property change to service. Ignored");
+            }
+        }
+    }
 }
 pub struct Context {
     children: Graph<RuntimeEntityReference, u32>,
+    properties : HashMap<String,String>,
 }
 
 impl Context {
@@ -191,6 +235,18 @@ impl Context {
         // let client = ApplicationInterfaceAsyncRPCClient::new(BincodeAsyncClientTransport::new());
 
         self.children[*node_index].clone()
+    }
+
+    pub fn get_property(&self, key:&str) -> Option<String> {
+        self.properties.get(key).map(|s| String::from(s))
+    }
+
+    pub fn write_property_unchecked(&mut self, key: String, value: String) -> Option<String> {
+        self.properties.insert(key, value)
+    }
+
+    pub fn contains_property(&self, key: &str) -> bool {
+        self.properties.contains_key(key)
     }
 
     /// get the name of the runtime entity. it can either be a service or a unit.
@@ -276,6 +332,7 @@ impl<'a> Context {
     pub fn new() -> Context {
         Context {
             children: Graph::new(),
+            properties : HashMap::new(),
         }
     }
 
@@ -294,6 +351,7 @@ impl<'a> Context {
             server_fd: None,
             appserver_terminate_handler: None,
             last_watchdog: None,
+            property_filters : None,
         };
 
         self.children
@@ -319,6 +377,7 @@ impl<'a> Context {
         if let Some(cfg) = load_config() {
             let mut context = Context {
                 children: Graph::new(),
+                properties: HashMap::new(),
             };
             for it in cfg.service {
                 let spawn = SpawnedService {
@@ -333,6 +392,7 @@ impl<'a> Context {
                     server_fd: None,
                     appserver_terminate_handler: None,
                     last_watchdog: None,
+                    property_filters: None,
                 };
                 context
                     .children
