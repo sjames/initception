@@ -19,7 +19,7 @@ use crate::src_gen::{application_interface, application_interface_ttrpc as app_i
 ///
 use async_trait::async_trait;
 
-use ttrpc::r#async::{Client, Server};
+pub use ttrpc::r#async::{Client, Server};
 
 use std::env;
 use std::error::Error;
@@ -28,7 +28,20 @@ use std::os::unix::io::FromRawFd;
 use std::os::unix::net::UnixStream;
 use std::time::SystemTime;
 
-//use std::os::unix::net::UnixStream;
+use thiserror::Error;
+// Error returned by Applications
+
+
+#[derive(Error, Debug)]
+pub enum AppError {
+    #[error("Application is not ready")]
+    NotReady,
+    #[error("Application failed to change state")]
+    Failed,  
+    #[error("unknown Application error")]
+    Unknown,
+}
+
 
 fn get_fd(env_variable_key: &str) -> Result<i32, Box<dyn Error>> {
     if let Ok(address) = env::var(env_variable_key) {
@@ -171,7 +184,13 @@ impl ApplicationClient {
     }
 }
 
-struct ApplicationServerInner<P: FnMut(), R: FnMut(), S: FnMut(), C: FnMut(&str), T:FnMut(String,String), E:FnMut(String,String)> {
+struct ApplicationServerInner<
+    P: FnMut()-> Result<(),AppError>, 
+    R: FnMut()-> Result<(),AppError>, 
+    S: FnMut()-> Result<(),AppError>, 
+    C: FnMut(&str)-> Result<(),AppError>, 
+    T:FnMut(String,String) -> Result<(),AppError>, 
+    E:FnMut(String,String) -> Result<(),AppError>,>  {
     on_pause: Option<P>,
     on_resume: Option<R>,
     on_stop: Option<S>,
@@ -180,19 +199,25 @@ struct ApplicationServerInner<P: FnMut(), R: FnMut(), S: FnMut(), C: FnMut(&str)
     on_event : Option<E>,
 }
 
-pub struct ApplicationServer<P: FnMut(), R: FnMut(), S: FnMut(), C: FnMut(&str), T:FnMut(String, String), E:FnMut(String,String) > {
+pub struct ApplicationServer<
+    P: FnMut()-> Result<(),AppError>, 
+    R: FnMut()-> Result<(),AppError>, 
+    S: FnMut()->Result<(),AppError>, 
+    C: FnMut(&str)->Result<(),AppError>, 
+    T:FnMut(String, String)->Result<(),AppError>, 
+    E:FnMut(String,String) ->Result<(),AppError>, > {
     inner: std::sync::Arc<std::sync::RwLock<ApplicationServerInner<P, R, S, C, T, E>>>,
 }
 
 #[async_trait]
 impl<P, R, S, C, T, E> app_int::ApplicationService for ApplicationServer<P, R, S, C, T,E>
 where
-    P: FnMut() + Sync + Send,
-    R: FnMut() + Sync + Send,
-    S: FnMut() + Sync + Send,
-    C: FnMut(&str) + Sync + Send,
-    T: FnMut(String,String) + Sync + Send,
-    E: FnMut(String,String) + Sync + Send,
+    P: FnMut()->Result<(),AppError> + Sync + Send,
+    R: FnMut()->Result<(),AppError> + Sync + Send,
+    S: FnMut()->Result<(),AppError> + Sync + Send,
+    C: FnMut(&str)->Result<(),AppError> + Sync + Send,
+    T: FnMut(String,String)->Result<(),AppError> + Sync + Send,
+    E: FnMut(String,String)->Result<(),AppError> + Sync + Send,
 
 {
     async fn pause(
@@ -202,8 +227,12 @@ where
     ) -> ttrpc::Result<crate::src_gen::application_interface::PauseResponse> {
         let mut inner = self.inner.write().unwrap();
         if let Some(on_pause) = &mut inner.on_pause {
-            on_pause();
-            Ok(crate::src_gen::application_interface::PauseResponse::default())
+            let mut response = crate::src_gen::application_interface::PauseResponse::default();
+            match on_pause() {
+                Ok(_) => {},
+                Err(_) => response.set_status(application_interface::ReturnStatus::ERROR),
+            }
+            Ok(response)
         } else {
             Err(ttrpc::Error::RpcStatus(ttrpc::get_status(
                 ttrpc::Code::NOT_FOUND,
@@ -218,8 +247,12 @@ where
     ) -> ttrpc::Result<crate::src_gen::application_interface::ResumeResponse> {
         let mut inner = self.inner.write().unwrap();
         if let Some(on_resume) = &mut inner.on_resume {
-            on_resume();
-            Ok(crate::src_gen::application_interface::ResumeResponse::default())
+            let mut response = crate::src_gen::application_interface::ResumeResponse::default();
+            match on_resume() {
+                Ok(_) => {},
+                Err(_) => response.set_status(application_interface::ReturnStatus::ERROR),    
+            }
+            Ok(response)
         } else {
             Err(ttrpc::Error::RpcStatus(ttrpc::get_status(
                 ttrpc::Code::NOT_FOUND,
@@ -234,8 +267,12 @@ where
     ) -> ttrpc::Result<crate::src_gen::application_interface::StopResponse> {
         let mut inner = self.inner.write().unwrap();
         if let Some(on_stop) = &mut inner.on_stop {
-            on_stop();
-            Ok(crate::src_gen::application_interface::StopResponse::default())
+            let mut response = crate::src_gen::application_interface::StopResponse::default();
+            match on_stop() {
+                Ok(_) => {},
+                Err(_) => response.set_status(application_interface::ReturnStatus::ERROR),       
+            }
+            Ok(response)
         } else {
             Err(ttrpc::Error::RpcStatus(ttrpc::get_status(
                 ttrpc::Code::NOT_FOUND,
@@ -251,11 +288,12 @@ where
     {
         let mut inner = self.inner.write().unwrap();
         if let Some(on_session_changed) = &mut inner.on_session_changed {
-            on_session_changed(req.session_name.as_str());
-            Ok(
-                crate::src_gen::application_interface::SessionChangedResponse::default(
-                ),
-            )
+            let mut response  = crate::src_gen::application_interface::SessionChangedResponse::default();
+            match on_session_changed(req.session_name.as_str()) {
+                Ok(_) => {},
+                Err(_) => response.set_status(application_interface::ReturnStatus::ERROR),    
+            }
+            Ok(response)
         } else {
             Err(ttrpc::Error::RpcStatus(ttrpc::get_status(
                 ttrpc::Code::NOT_FOUND,
@@ -267,11 +305,12 @@ where
     async fn property_changed(&self, _ctx: &::ttrpc::r#async::TtrpcContext, mut req: crate::src_gen::application_interface::PropertyChangedRequest) -> ::ttrpc::Result<crate::src_gen::application_interface::PropertyChangedResponse> {
         let mut inner = self.inner.write().unwrap();
         if let Some(on_property_changed) = &mut inner.on_property_changed {
-            on_property_changed(req.take_key(), req.take_value());
-            Ok(
-                crate::src_gen::application_interface::PropertyChangedResponse::default(
-                ),
-            )
+            let mut response = crate::src_gen::application_interface::PropertyChangedResponse::default();
+            match on_property_changed(req.take_key(), req.take_value()) {
+                Ok(_) => {},
+                Err(_) => {}, // Don't care about errors for property
+            }
+            Ok(response)
         } else {
             Err(ttrpc::Error::RpcStatus(ttrpc::get_status(
                 ttrpc::Code::NOT_FOUND,
@@ -283,11 +322,12 @@ where
     async fn event(&self, _ctx: &::ttrpc::r#async::TtrpcContext, mut req: super::application_interface::EventRequest) -> ::ttrpc::Result<super::application_interface::EventResponse> {
         let mut inner = self.inner.write().unwrap();
         if let Some(on_event) = &mut inner.on_event {
-            on_event(req.take_key(), req.take_value());
-            Ok(
-                crate::src_gen::application_interface::EventResponse::default(
-                ),
-            )
+            let response = crate::src_gen::application_interface::EventResponse::default();
+            match on_event(req.take_key(), req.take_value()) {
+                Ok(_) => {},
+                Err(_) => {}, // Don't care about errors for property
+            }
+            Ok(response)
         } else {
             Err(ttrpc::Error::RpcStatus(ttrpc::get_status(
                 ttrpc::Code::NOT_FOUND,
@@ -299,12 +339,12 @@ where
 
 impl<'a, P, R, S, C, T, E> ApplicationServer<P, R, S, C,T,E>
 where
-    P: FnMut() + Send + Sync + 'a,
-    R: FnMut() + Send + Sync + 'a,
-    S: FnMut() + Send + Sync + 'a,
-    C: FnMut(&str) + Send + Sync + 'a,
-    T: FnMut(String, String) + Send + Sync + 'a,
-    E: FnMut(String, String) + Send + Sync + 'a,
+    P: FnMut()-> Result<(),AppError> + Send + Sync + 'a,
+    R: FnMut()-> Result<(),AppError> + Send + Sync + 'a,
+    S: FnMut()-> Result<(),AppError> + Send + Sync + 'a,
+    C: FnMut(&str)-> Result<(),AppError> + Send + Sync + 'a,
+    T: FnMut(String, String)-> Result<(),AppError> + Send + Sync + 'a,
+    E: FnMut(String, String)-> Result<(),AppError> + Send + Sync + 'a,
 
 {
     pub fn new(on_pause: P, on_resume: R, on_stop: S, on_session_changed: C, on_property_changed:T, on_event:E) -> Self {
@@ -324,12 +364,12 @@ where
 
     pub fn get_server<'b>(on_pause: P, on_resume: R, on_stop: S, on_session_changed: C, on_property_changed:T, on_event:E) -> Server
     where
-        P: FnMut() + Send + Sync + 'static,
-        R: FnMut() + Send + Sync + 'static,
-        S: FnMut() + Send + Sync + 'static,
-        C: FnMut(&str) + Send + Sync + 'static,
-        T: FnMut(String, String) + Send + Sync + 'static,
-        E: FnMut(String, String) + Send + Sync + 'static,
+        P: FnMut()-> Result<(),AppError> + Send + Sync + 'static,
+        R: FnMut()-> Result<(),AppError> + Send + Sync + 'static,
+        S: FnMut()-> Result<(),AppError> + Send + Sync + 'static,
+        C: FnMut(&str)-> Result<(),AppError> + Send + Sync + 'static,
+        T: FnMut(String, String)-> Result<(),AppError> + Send + Sync + 'static,
+        E: FnMut(String, String)-> Result<(),AppError> + Send + Sync + 'static,
 
     {
         let service = Box::new(ApplicationServer::new(
