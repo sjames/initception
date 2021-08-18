@@ -21,8 +21,56 @@ use libinitception::config::{ApplicationConfig, CreateParams, RunParams};
 
 use tracing::{debug, error, info};
 
-/// main library entry point
+pub enum FurtherProcessing {
+    // This has been handled, do nothing
+    DoNothing,
+    // this is the first launch, initialize. The flag indicates if
+    // we need to perform the early mounts
+    FirstLaunch(bool),
+    // launch the requested application
+    LaunchProcess(String),
+}
 
+/// Check if the process was launched to handle internal processing.
+/// this function will not return if the execution is meant for
+/// internal use of initception.
+pub fn handle_internal() -> Result<FurtherProcessing,std::io::Error> {
+    let args: Vec<String> = env::args().collect();
+    let mut opts = Options::new();
+    opts.optopt("i", "", "Identity", "zygote|sysfswalk");
+    opts.optopt("k", "", "key", "secret key");
+    opts.optopt("e", "", "executable", "executable name");
+    opts.optflag("n", "", "not pid 1");
+
+    let matches = match opts.parse(&args[1..]) {
+        Ok(m) => m,
+        Err(f) => panic!(f.to_string()),
+    };
+    let key = matches.opt_str("k");
+    let identity = matches.opt_str("i");
+    let notpid1 = matches.opt_present("n");
+
+    if identity.is_some() {
+        match identity.unwrap().as_ref() {
+            "zygote" => {
+                zygote::zygote_main(key).unwrap();
+                Ok(FurtherProcessing::DoNothing)
+            },
+            "sysfswalk" => {
+                sysfs_walker::sysfs_walker_main(key).unwrap();
+                Ok(FurtherProcessing::DoNothing)
+            },
+            others => {
+                Ok(FurtherProcessing::LaunchProcess(others.to_owned()))
+            }
+        }
+    } else {
+        Ok(FurtherProcessing::FirstLaunch(notpid1))
+    }
+
+}
+
+/// main library entry point
 pub fn init_main(configs: &[&dyn ApplicationConfig]) -> Result<(), Box<dyn std::error::Error>>
 //where F: FnOnce(&str) -> Result<(), Box<dyn std::error::Error>>
 {
