@@ -65,5 +65,5 @@ ttrpc-codegen = "0.1.2"
 [profile.release]
 lto = true
 
-[workspace]
-members = ["libinitception"]
+#[workspace]
+#members = ["libinitception"]
