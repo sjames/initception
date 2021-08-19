@@ -127,6 +127,16 @@ pub struct Service {
     pub capabilities: Option<Vec<Cap>>,
     pub env: Option<Vec<[String; 2]>>,
     pub r#type: Option<Type>,
+    /// Where the standard output of this process should be
+    /// redirected to. Can be one of,
+    /// inherit, null, tty,syslog, kmsg
+    pub stdout : Option<String>,
+    /// Where the standard input of this process
+    /// should be connected. Can be, inherit, null, tty
+    pub stdin : Option<String>,
+    /// Which tty path must be used if requested elsewhere in 
+    /// the configuration.
+    pub tty_path : Option<String>,
     // set to true if this configuration is static. The executable path is not used
     #[serde(skip_serializing,skip_deserializing)]
     pub is_static: bool,
@@ -247,6 +257,9 @@ impl From<&dyn ApplicationConfig> for Service {
                 Some(env)
             },
             r#type: Some(Type::Notify),
+            stdin : None,
+            stdout : None,
+            tty_path : None,
             // if created from ApplicationConfiguration, this is always static
             is_static: true,
         }
