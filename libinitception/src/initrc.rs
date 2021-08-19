@@ -108,7 +108,7 @@ pub trait ServiceTrait<'a> {
     fn get_type(&self) -> Option<Type>;
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Default)]
 pub struct Service {
     pub name: String,
     pub path: PathBuf,
@@ -128,7 +128,7 @@ pub struct Service {
     pub env: Option<Vec<[String; 2]>>,
     pub r#type: Option<Type>,
     // set to true if this configuration is static. The executable path is not used
-    #[serde(skip_serializing)]
+    #[serde(skip_serializing,skip_deserializing)]
     pub is_static: bool,
 }
 #[derive(PartialEq)]
