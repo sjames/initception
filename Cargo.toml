@@ -62,4 +62,3 @@ ttrpc-codegen = "0.1.2"
 [profile.release]
 lto = true
 
-

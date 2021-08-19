@@ -482,7 +482,7 @@ impl<'a> Context {
 
             Some(context)
         } else {
-            None
+            Some(Self::new())
         }
     }
 

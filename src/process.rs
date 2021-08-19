@@ -43,7 +43,7 @@ pub async fn resume_service(spawned_ref: RuntimeEntityReference) -> Result<(), n
         if spawn.state.is_alive() {
             if let Some(child) = &mut spawn.child {
                 // send sigint first, then SIGTERM
-                info!("Sending SIGCONT to process with PID : {}", child.pid());
+                debug!("Sending SIGCONT to process with PID : {}", child.pid());
                 if let Err(e) = child.signal(unshare::Signal::SIGCONT) {
                     error!("Failed to send SIGCONT to PID:{} ({})", child.pid(), e);
                 }
@@ -281,9 +281,29 @@ pub fn launch_service(spawned_ref: RuntimeEntityReference) -> Result<(), nix::Er
             cmd.keep_caps(keepcaps.iter());
         }
 
-        cmd.stdout(unshare::Stdio::inherit());
-        cmd.stdin(unshare::Stdio::inherit());
-        cmd.stderr(unshare::Stdio::inherit());
+        cmd.stdout(match &service.stdout {
+            libinitception::initrc::IODevice::Null => unshare::Stdio::Null,
+            libinitception::initrc::IODevice::Inherit => unshare::Stdio::inherit(),
+            libinitception::initrc::IODevice::Tty(_) => unshare::Stdio::inherit(),
+            libinitception::initrc::IODevice::KMsg => unshare::Stdio::inherit(),
+            libinitception::initrc::IODevice::SysLog => unshare::Stdio::inherit(),
+        });
+
+        cmd.stdin(match &service.stdout {
+            libinitception::initrc::IODevice::Null => unshare::Stdio::Null,
+            libinitception::initrc::IODevice::Inherit => unshare::Stdio::inherit(),
+            libinitception::initrc::IODevice::Tty(_) => unshare::Stdio::inherit(),
+            libinitception::initrc::IODevice::KMsg => unshare::Stdio::inherit(),
+            libinitception::initrc::IODevice::SysLog => unshare::Stdio::inherit(),
+        });
+
+        cmd.stderr(match &service.stdout {
+            libinitception::initrc::IODevice::Null => unshare::Stdio::Null,
+            libinitception::initrc::IODevice::Inherit => unshare::Stdio::inherit(),
+            libinitception::initrc::IODevice::Tty(_) => unshare::Stdio::inherit(),
+            libinitception::initrc::IODevice::KMsg => unshare::Stdio::inherit(),
+            libinitception::initrc::IODevice::SysLog => unshare::Stdio::inherit(),
+        });
 
         if let Some(env) = &service.env {
             for e in env {

@@ -89,7 +89,8 @@ pub fn initception_main_static(
         }
     }
 
-    let mut context = Context::new();
+    // Create initial context by loading from config file.
+    let mut context = Context::create_context().unwrap();
     for app in configs {
         context.add_service(*app);
     }

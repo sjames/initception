@@ -18,9 +18,13 @@
 //extern crate petgraph;
 //extern crate toml;
 
-use serde::Deserialize;
+use serde::{Deserialize};
+use serde_with::{self, serde_as};
+use serde_with::DisplayFromStr;
+use std::ffi::CString;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
 use crate::app;
 use crate::config::ApplicationConfig;
@@ -108,7 +112,49 @@ pub trait ServiceTrait<'a> {
     fn get_type(&self) -> Option<Type>;
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Debug)]
+pub enum IODevice {
+    Null,
+    Inherit,
+    Tty(PathBuf),
+    KMsg,
+    SysLog,
+}
+
+impl Default for IODevice {
+    fn default() -> Self {
+        IODevice::Null
+    }
+}
+
+impl FromStr for IODevice {
+
+    type Err = String;
+    
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "null" => Ok(Self::Null),
+            "inherit" => Ok(Self::Inherit),
+            "kmsg" => Ok(Self::KMsg),
+            "syslog" => Ok(Self::SysLog),
+            maybe_tty => {
+                if maybe_tty.starts_with("tty:") {
+                    if let Some((_,path)) = maybe_tty.split_once(":") {
+                        Ok(Self::Tty(PathBuf::from(path)))
+                    } else {
+                        Err("tty syntax is incorrect. Example: tty:/dev/tty0".to_owned())
+                    }
+                } else {
+                    Err("Unsupported io device (should be one of null, inherit, kmsg, syslog or tty:<device>)".to_owned())
+                }
+            }
+        }
+    }
+
+}
+
+#[serde_as]
+#[derive(Deserialize, Debug, Default)]
 pub struct Service {
     pub name: String,
     pub path: PathBuf,
@@ -127,8 +173,22 @@ pub struct Service {
     pub capabilities: Option<Vec<Cap>>,
     pub env: Option<Vec<[String; 2]>>,
     pub r#type: Option<Type>,
+    /// Where the standard output of this process should be
+    /// redirected to. Can be one of,
+    /// inherit, null, tty,syslog, kmsg
+    #[serde(default = "IODevice::default")]
+    #[serde_as(as = "DisplayFromStr")]
+    pub stdout : IODevice,
+    /// Where the standard input of this process
+    /// should be connected. Can be, inherit, null, tty
+    #[serde(default = "IODevice::default")]
+    #[serde_as(as = "DisplayFromStr")]
+    pub stdin : IODevice,
+    #[serde(default = "IODevice::default")]
+    #[serde_as(as = "DisplayFromStr")]
+    pub stderr : IODevice,
     // set to true if this configuration is static. The executable path is not used
-    #[serde(skip_serializing)]
+    #[serde(skip_serializing,skip_deserializing)]
     pub is_static: bool,
 }
 #[derive(PartialEq)]
@@ -247,6 +307,9 @@ impl From<&dyn ApplicationConfig> for Service {
                 Some(env)
             },
             r#type: Some(Type::Notify),
+            stdin : IODevice::Null,
+            stdout : IODevice::Null,
+            stderr : IODevice::Null,
             // if created from ApplicationConfiguration, this is always static
             is_static: true,
         }
