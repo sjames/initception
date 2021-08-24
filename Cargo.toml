@@ -16,7 +16,7 @@ path = "src/lib.rs"
 
 [dependencies]
 nix = "0.16.0"
-ipc-channel = "0.12.2"
+#ipc-channel = "0.12.2"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1" }
 caps = "0.3.3"

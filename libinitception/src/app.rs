@@ -70,7 +70,6 @@ pub const NOTIFY_APP_SERVER_FD: &str = "NOTIFY_APP_SERVER_FD";
 pub const APPNAME_LIFECYCLE_MANAGER: &str = "lifecycle.manager";
 
 // Application entry
-
 pub struct ApplicationClient {
     manager_proxy: app_int::ApplicationManagerClient,
     lifecycle_proxy: app_int::LifecycleServerClient,
