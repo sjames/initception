@@ -6,20 +6,25 @@ use thiserror;
 use serde::{Serialize, Deserialize};
 use async_trait::async_trait;
 use thiserror::Error;
+use futures::future::BoxFuture;
+use std::sync::Arc;
 
 #[derive(Error, Debug, Serialize, Deserialize)]
 pub enum  ApplicationManagerError {
     #[error("Unable to Pause")]
     PauseError,
-    #[error("Unable to Resumr")]
+    #[error("Unable to Resume")]
     ResumeError,
     #[error("Unable to Stop")]
     StopError,
 }
 
-#[service(fields([1]value1:u32,),events([1 ;10]value1:bool))]
+#[service]
 #[async_trait]
-pub trait ApplicationManager {
+/// Each application hosts the `ApplicationControl` interface. Applications
+/// must fulfil the contracts of this interface or risk being killed for 
+/// misbehaviour.
+pub trait ApplicationControl {
     /// Pause the application. The application is expected to stop
     /// any major processing activity on reception of this call.
     /// The system may freeze the application after this.
@@ -29,15 +34,18 @@ pub trait ApplicationManager {
     /// Stop all activities. The process may get killed after this
     /// call is acknowledged.
     async fn stop(&self) -> Result<(), ApplicationManagerError>;
-    async fn notify_property_changed(&self, key: String, value: String) -> Result<(), ApplicationManagerError>;
-    async fn notify_event(&self, key: String, value: String) -> Result<(), ApplicationManagerError>;
+    async fn on_property_changed(&self, key: String, value: String) -> Result<(), ApplicationManagerError>;
+    async fn handle_event(&self, key: String, value: String) -> Result<(), ApplicationManagerError>;
 }
 
-pub struct ApplicationManagerImpl {
+
+#[service_impl(ApplicationControl)]
+pub struct ApplicationControlImpl {
 
 }
+
 #[async_trait]
-impl ApplicationManager for ApplicationManagerImpl {
+impl ApplicationControl for ApplicationControlImpl {
     
     async fn pause(&self) -> Result<(), ApplicationManagerError> {
         Ok(())
@@ -49,19 +57,12 @@ impl ApplicationManager for ApplicationManagerImpl {
         Ok(())
     }
 
-    async fn notify_event(&self, key: String, value: String) -> Result<(), ApplicationManagerError> {
+    async fn handle_event(&self, key: String, value: String) -> Result<(), ApplicationManagerError> {
         Ok(())
     }
 
-    async fn notify_property_changed(&self, key: String, value: String) -> Result<(), ApplicationManagerError> {
+    async fn on_property_changed(&self, key: String, value: String) -> Result<(), ApplicationManagerError> {
         Ok(())
     }
-
-    fn set_value1(&self, _: u32) -> Result<(), FieldError> { Ok(()) }
-    
-    fn get_value1(&self) -> Result<&u32, FieldError> { 
-        Ok(&0)
-        }
-
     
 }

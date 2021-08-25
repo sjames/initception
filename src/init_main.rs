@@ -44,7 +44,7 @@ pub fn handle_internal() -> Result<FurtherProcessing,std::io::Error> {
 
     let matches = match opts.parse(&args[1..]) {
         Ok(m) => m,
-        Err(f) => panic!(f.to_string()),
+        Err(f) => panic!("{}",f.to_string()),
     };
     let key = matches.opt_str("k");
     let identity = matches.opt_str("i");
@@ -84,7 +84,7 @@ pub fn init_main(configs: &[&dyn ApplicationConfig]) -> Result<(), Box<dyn std::
 
     let matches = match opts.parse(&args[1..]) {
         Ok(m) => m,
-        Err(f) => panic!(f.to_string()),
+        Err(f) => panic!("{}",f.to_string()),
     };
     let key = matches.opt_str("k");
     let identity = matches.opt_str("i");
