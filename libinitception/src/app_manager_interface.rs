@@ -44,6 +44,14 @@ pub trait ApplicationControl {
 
 #[derive(Error, Debug, Serialize, Deserialize)]
 pub enum  LifecycleControlError {
+    #[error("Error launching application")]
+    LaunchError,
+    #[error("Error Controlling application")]
+    ControlError,
+    #[error("Application is already running")]
+    AlreadyRunning,
+    #[error("Unsupported")]
+    Unsupported,
     #[error("Unknown Error")]
     Unknown,
 }

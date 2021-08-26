@@ -53,7 +53,8 @@ async-trait = "0.1.31"
 ttrpc = { git = "https://github.com/sjames/ttrpc-rust.git", features = ["async"] }
 thiserror = "1.0"
 regex = "1.4"
-
+someip = {git = "https://github.com/sjames/someip.git"}
+someip_derive = {git = "https://github.com/sjames/someip.git"}
 libinitception = { path="./libinitception"}
 
 [build-dependencies]

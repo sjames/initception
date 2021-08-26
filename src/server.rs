@@ -43,6 +43,174 @@ use std::sync::Arc;
 use crate::servers::lifecycle::LifecycleServerImpl;
 use libinitception::initrc;
 
+use libinitception::app_manager_interface::*;
+/*  New implementation for ServiceManager
+*/
+use someip::*;
+use someip_derive::service_impl;
+
+#[service_impl(ApplicationServer)]
+struct ApplicationServerImpl {
+    inner: InnerReference,
+}
+
+impl ApplicationServerImpl {
+    fn new(
+        context: ContextReference,
+        tx: InnerTxReference,
+        service_index: ServiceIndex,
+        sender: Sender<()>,
+    ) -> Self {
+        ApplicationServerImpl {
+            inner: Arc::new(std::sync::RwLock::new(Inner::new(
+                context,
+                tx,
+                service_index,
+                sender,
+            ))),
+        }
+    }
+}
+
+#[async_trait]
+impl ApplicationServer for ApplicationServerImpl {
+    async fn heartbeat(&self, counter: u32) -> Result<(),ApplicationManagerError> {
+        let inner = self.inner.write().unwrap();
+        debug!("Heartbeat received from : {:?} counter {}", inner.service_index, counter);
+        let service = inner.get_service().unwrap();
+        let mut service = service.write().unwrap();
+        service.record_watchdog();
+        Ok(())
+    }
+
+    async fn statechanged(&self, running_state: RunningState) -> Result<(),ApplicationManagerError> {
+        match running_state {
+            RunningState::Paused => {
+                let inner = self.inner.read().unwrap();
+                let tx = inner.tx.lock().unwrap();
+
+                if tx
+                    .send(TaskMessage::ProcessPaused(inner.service_index, None))
+                    .is_err()
+                {
+                    panic!("Receiver dropped");
+                }
+                Ok(())
+            }
+            RunningState::Running => {
+                let mut inner = self.inner.write().unwrap();
+
+                info!("Application is running");
+
+                // send this once
+                if let Some(tx) = inner.sender.take() {
+                    if tx.send(()).is_err() {
+                        panic!("Receiver dropped");
+                    }
+                }
+
+                let tx = inner.tx.lock().unwrap();
+
+                if tx
+                    .send(TaskMessage::ProcessRunning(inner.service_index, None))
+                    .is_err()
+                {
+                    panic!("Receiver dropped");
+                }
+                Ok(())
+            }
+            RunningState::Stopped => {
+                let inner = self.inner.read().unwrap();
+                let tx = inner.tx.lock().unwrap();
+
+                if tx
+                    .send(TaskMessage::ProcessStopped(inner.service_index, None))
+                    .is_err()
+                {
+                    panic!("Receiver dropped");
+                }
+                Ok(())
+            }
+        }
+    }
+
+    async fn get_property(&self, key: String) -> Result<String,ApplicationManagerError> {
+        let inner = self.inner.read().unwrap();
+        
+        let response = if let Ok(context) = inner.context.read() {
+            if let Some(value) = context.get_property(&key) {
+                Ok(value)
+            } else {
+                Err(ApplicationManagerError::NotFound)
+            }
+        } else {
+            Err(ApplicationManagerError::Unknown)
+        };
+        response
+    }
+
+    async fn set_property(&self, key : String, value:String, options: SetPropertyOptions ) -> Result<(),ApplicationManagerError> {
+        let inner = self.inner.read().unwrap();
+        let context = inner.context.write();
+
+        if let Ok(mut context) = context {
+            // special handling for read only strings
+            if key.starts_with("ro.") && context.contains_property(&key) {
+                // return error if the key already exists and is read only
+                // key exists, bail out
+                error!("Attempt to set read-only key {} ignored", &key);
+                Err(ApplicationManagerError::ReadOnly)
+            } else {
+                // ok not a read only property, lets continue
+                let copy = value.clone();
+                let key_copy = key.clone();
+                if let Some(previous_value) = context.write_property_unchecked(key, value) {
+                    if copy == previous_value {
+                        debug!("Property written but value did not change.  No notifications");
+                    } else {
+                        //TODO: Change property notification
+                        let tx = inner.tx.lock().unwrap();
+                        if tx
+                            .send(TaskMessage::PropertyChanged(
+                                inner.service_index,
+                                key_copy,
+                                copy,
+                            ))
+                            .is_err()
+                        {
+                            panic!("Receiver dropped");
+                        }
+                    }
+                }
+                Ok(())
+            }
+        } else {
+            Err(ApplicationManagerError::Unknown)
+        }
+      }
+    
+    async fn set_property_filter(&self, regex_filter: String) -> Result<(),ApplicationManagerError> {
+        debug!("Adding property filter: {}", &regex_filter);
+        let inner = self.inner.read().unwrap();
+
+        if let Ok(context) = inner.context.read() {
+            if let Some(service) = context.get_service(inner.service_index) {
+                if let Ok(mut service) = service.write() {
+                    if let Ok(_) = service.add_property_filter(&regex_filter) {
+                        return Ok(())
+                    }
+                }
+            }
+        }
+        Err(ApplicationManagerError::Unknown)
+    }
+}
+
+
+/* End of new implementation
+ */
+
+
 struct ServiceManager {
     inner: InnerReference,
 }
