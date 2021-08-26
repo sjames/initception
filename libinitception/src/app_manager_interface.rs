@@ -10,7 +10,7 @@ use futures::future::BoxFuture;
 use std::sync::Arc;
 
 #[derive(Error, Debug, Serialize, Deserialize)]
-pub enum  ApplicationManagerError {
+pub enum  ApplicationControlError {
     #[error("Unable to Pause")]
     PauseError,
     #[error("Unable to Resume")]
@@ -28,17 +28,17 @@ pub trait ApplicationControl {
     /// Pause the application. The application is expected to stop
     /// any major processing activity on reception of this call.
     /// The system may freeze the application after this.
-    async fn pause(&self) -> Result<(), ApplicationManagerError>;
+    async fn pause(&self) -> Result<(), ApplicationControlError>;
     /// Resume normal processing
-    async fn resume(&self) -> Result<(), ApplicationManagerError>;
+    async fn resume(&self) -> Result<(), ApplicationControlError>;
     /// Stop all activities. The process may get killed after this
     /// call is acknowledged.
-    async fn stop(&self) -> Result<(), ApplicationManagerError>;
+    async fn stop(&self) -> Result<(), ApplicationControlError>;
     /// A property that the application is interested in has changed. The 
     /// property key and value is sent.
-    async fn on_property_changed(&self, key: String, value: String) -> Result<(), ApplicationManagerError>;
+    async fn on_property_changed(&self, key: String, value: String) -> Result<(), ApplicationControlError>;
     /// An event has been sent to the application.
-    async fn handle_event(&self, key: String, value: String) -> Result<(), ApplicationManagerError>;
+    async fn handle_event(&self, key: String, value: String) -> Result<(), ApplicationControlError>;
 }
 
 
@@ -119,3 +119,64 @@ pub trait LifecycleControl {
 }
 
 
+#[derive(Error, Debug, Serialize, Deserialize)]
+pub enum  ApplicationManagerError {
+    #[error("Unknown Error")]
+    Unknown,
+    #[error("Property or key not found")]
+    NotFound,
+    #[error("Property is read-only")]
+    ReadOnly,
+    #[error("This application has no access to the property")]
+    PermissionDenied,
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum RunningState {
+    Running,
+    Stopped,
+    Paused,
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum SetPropertyOptions {
+    None,
+    // if this flag is set and the property is created by this call, it is set read-only
+    // The call will fail if the property already exists.
+    CreateReadOnly,
+}
+
+impl Default for SetPropertyOptions {
+    fn default() -> Self {
+        SetPropertyOptions::None
+    }
+}
+
+/// The `ApplicationServer` interface is provided by initception for every application.
+/// Applications use this interface to interact with initception
+#[interface(name("dev.sabaton.ApplicationServer"))]
+#[async_trait]
+pub trait ApplicationServer {
+    /// Send a heartbeat to the application server. The application also
+    /// sends a running counter for the heartbeat
+    async fn heartbeat(&self, counter: u32) -> Result<(),ApplicationManagerError>;
+
+    /// The application sends this message to notify the server of state changes
+    async fn statechanged(&self, running_state: RunningState) -> Result<(),ApplicationManagerError>;
+
+    /// Retrieve the value of a system property provided the key name
+    /// # Returns
+    /// The value of the property or `ApplicationManager::NotFound` if the key is not found.
+    async fn get_property(&self, key: String) -> Result<String,ApplicationManagerError>;
+
+    /// Set the value of a property. If `SetPropertyOptions::CreateReadOnly` is set,
+    /// a new read-only property will be set and marked read-only.
+    /// #Returns
+    /// If the property already exists and marked read-only, the function will return with `ApplicationManagerError::ReadOnly`
+    async fn set_property(&self, key : String, value:String, options: SetPropertyOptions ) -> Result<(),ApplicationManagerError>;
+
+    /// Set a filter for changed properties. Any keys that match the given filter will
+    /// be sent to the application via the `ApplicationControl::on_property_changed" method.
+    async fn set_property_filter(&self, regex_filter: String) -> Result<(),ApplicationManagerError>;
+
+}
