@@ -19,7 +19,7 @@ pub enum  ApplicationManagerError {
     StopError,
 }
 
-#[service(name("dev.sabaton.ApplicationControl"))]
+#[interface(name("dev.sabaton.ApplicationControl"))]
 #[async_trait]
 /// Each application hosts the `ApplicationControl` interface. Applications
 /// must fulfil the contracts of this interface or risk being killed for 
@@ -70,7 +70,7 @@ pub enum ShutdownType {
 /// application uses this interface to manage the lifecycle of the entire system.
 /// The lifecycle manager is a privileged application that gets access to this
 /// interface at startup via an anonymous UnixDomain socket.
-#[service(name("dev.sabaton.LifecycleControl"))]
+#[interface(name("dev.sabaton.LifecycleControl"))]
 #[async_trait]
 pub trait LifecycleControl {
     /// Return the list of all applications in the system.
