@@ -1,15 +1,18 @@
 //use crate::application::src_gen::{application_interface_ttrpc::ApplicationServiceClient, application_interface};
 use std::time::Duration;
+use someip::CallProperties;
 use thiserror::Error;
 
 use libinitception::application_interface;
 use libinitception::ApplicationServiceClient;
+use libinitception::app_manager_interface::{*};
 
 use tokio::sync::mpsc::{Receiver, Sender};
 
 use tracing::debug;
 
 use tokio::sync::oneshot::Sender as OneShotSender;
+
 enum ApplicationRequest {
     Stop(OneShotSender<ApplicationResponse>, Duration),
     Pause(OneShotSender<ApplicationResponse>, Duration),
@@ -153,10 +156,10 @@ impl ApplicationServiceProxy {
     }
 }
 
-pub struct ApplicationServiceWrapper(ApplicationServiceClient, Receiver<ApplicationRequest>);
+pub struct ApplicationServiceWrapper(ApplicationControlProxy, Receiver<ApplicationRequest>);
 
 impl ApplicationServiceWrapper {
-    pub fn new_pair(proxy: ApplicationServiceClient) -> (Self, ApplicationServiceProxy) {
+    pub fn new_pair(proxy: ApplicationControlProxy) -> (Self, ApplicationServiceProxy) {
         let (sender, rx) = tokio::sync::mpsc::channel::<ApplicationRequest>(1);
         (
             ApplicationServiceWrapper(proxy, rx),
@@ -223,28 +226,19 @@ impl ApplicationServiceWrapper {
     }
 
     async fn pause(&mut self, timeout: Duration) -> Result<(), ServiceProxyError> {
-        let req = application_interface::PauseRequest::new();
-        if let Ok(res) = self.0.pause(&req, timeout.as_nanos() as i64).await {
-            match res.status {
-                application_interface::ReturnStatus::OK => Ok(()),
-                _ => Err(res.status.into()),
-            }
-        } else {
-            Err(ServiceProxyError::Disconnected)
-        }
+        let prop = CallProperties::with_timeout(timeout);
+        match self.0.pause(&prop).await {
+            Ok(()) => Ok(()),
+            Err(e) => Err(ServiceProxyError::Failed),
+        } 
     }
 
     async fn resume(&mut self, timeout: Duration) -> Result<(), ServiceProxyError> {
-        let mut req = application_interface::ResumeRequest::new();
-        req.set_timeout_ms(timeout.as_millis() as i32);
-        if let Ok(res) = self.0.resume(&req, timeout.as_nanos() as i64).await {
-            match res.status {
-                application_interface::ReturnStatus::OK => Ok(()),
-                _ => Err(res.status.into()),
-            }
-        } else {
-            Err(ServiceProxyError::Disconnected)
-        }
+        let prop = CallProperties::with_timeout(timeout);
+        match self.0.resume(&prop).await {
+            Ok(()) => Ok(()),
+            Err(e) => Err(ServiceProxyError::Failed),
+        } 
     }
 
     async fn session_changed(
@@ -252,17 +246,15 @@ impl ApplicationServiceWrapper {
         session: String,
         timeout: Duration,
     ) -> Result<(), ServiceProxyError> {
-        let mut req = application_interface::SessionChangedRequest::new();
-        req.set_session_name(session);
+        
+        let prop = CallProperties::with_timeout(timeout);
+        
         if let Ok(res) = self
             .0
-            .session_changed(&req, timeout.as_nanos() as i64)
+            .session_changed(session, &prop)
             .await
         {
-            match res.status {
-                application_interface::ReturnStatus::OK => Ok(()),
-                _ => Err(res.status.into()),
-            }
+           Ok(())
         } else {
             Err(ServiceProxyError::Disconnected)
         }
@@ -270,19 +262,17 @@ impl ApplicationServiceWrapper {
 
     async fn property_changed(
         &mut self,
-        prop: (String, String),
+        property: (String, String),
         timeout: Duration,
     ) -> Result<(), ServiceProxyError> {
-        let mut req = application_interface::PropertyChangedRequest::new();
-        req.set_key(prop.0);
-        req.set_value(prop.1);
-
-        if let Ok(_res) = self
+        let prop = CallProperties::with_timeout(timeout);
+        
+        if let Ok(res) = self
             .0
-            .property_changed(&req, timeout.as_nanos() as i64)
+            .on_property_changed(property.0, property.1 ,&prop)
             .await
         {
-            Ok(())
+           Ok(())
         } else {
             Err(ServiceProxyError::Disconnected)
         }
@@ -290,31 +280,28 @@ impl ApplicationServiceWrapper {
 
     async fn event(
         &mut self,
-        prop: (String, String),
+        property: (String, String),
         timeout: Duration,
     ) -> Result<(), ServiceProxyError> {
-        let mut req = application_interface::EventRequest::new();
-        req.set_key(prop.0);
-        req.set_value(prop.1);
-        if let Ok(_res) = self.0.event(&req, timeout.as_nanos() as i64).await {
-            Ok(())
+        let prop = CallProperties::with_timeout(timeout);
+        
+        if let Ok(res) = self
+            .0
+            .handle_event(property.0, property.1 ,&prop)
+            .await
+        {
+           Ok(())
         } else {
             Err(ServiceProxyError::Disconnected)
         }
     }
 
     async fn stop(&mut self, timeout: Duration) -> Result<(), ServiceProxyError> {
-        let mut req = application_interface::StopRequest::new();
-        req.set_timeout_ms(timeout.as_millis() as i32);
-
-        if let Ok(res) = self.0.stop(&req, timeout.as_nanos() as i64).await {
-            match res.status {
-                application_interface::ReturnStatus::OK => Ok(()),
-                _ => Err(res.status.into()),
-            }
-        } else {
-            Err(ServiceProxyError::Disconnected)
-        }
+        let prop = CallProperties::with_timeout(timeout);
+        match self.0.stop(&prop).await {
+            Ok(()) => Ok(()),
+            Err(e) => Err(ServiceProxyError::Failed),
+        } 
     }
 }
 
