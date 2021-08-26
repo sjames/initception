@@ -19,7 +19,7 @@ pub enum  ApplicationManagerError {
     StopError,
 }
 
-#[service]
+#[service(name("dev.sabaton.ApplicationControl"))]
 #[async_trait]
 /// Each application hosts the `ApplicationControl` interface. Applications
 /// must fulfil the contracts of this interface or risk being killed for 
@@ -38,6 +38,7 @@ pub trait ApplicationControl {
     async fn handle_event(&self, key: String, value: String) -> Result<(), ApplicationManagerError>;
 }
 
+/*
 
 #[service_impl(ApplicationControl)]
 pub struct ApplicationControlImpl {
@@ -66,3 +67,4 @@ impl ApplicationControl for ApplicationControlImpl {
     }
     
 }
+*/
