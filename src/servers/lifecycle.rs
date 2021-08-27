@@ -28,7 +28,7 @@ use tracing::debug;
 /*
  New implementation for LifecycleServer
 */
-use libinitception::app_manager_interface::*;
+use libinitception::app_interface::*;
 use someip::*;
 use someip_derive::service_impl;
 
@@ -62,23 +62,23 @@ impl LifecycleControl for LifecycleControlServer {
         Ok(names)
     }
 
-    async fn get_application_status(&self,name: String) -> Result<libinitception::app_manager_interface::ApplicationStatus,LifecycleControlError> {
+    async fn get_application_status(&self,name: String) -> Result<libinitception::app_interface::ApplicationStatus,LifecycleControlError> {
         let inner = self.inner.read().unwrap();
         let context = inner.context.read().unwrap();
 
         if let Some(status) = context.get_service_status(&name) {
             let response = match status {
-                RunningState::Running => libinitception::app_manager_interface::ApplicationStatus::Running,
-                RunningState::Stopped => libinitception::app_manager_interface::ApplicationStatus::Stopped,
-                RunningState::Paused => libinitception::app_manager_interface::ApplicationStatus::Paused,
-                RunningState::WaitForConnect => libinitception::app_manager_interface::ApplicationStatus::Running,
+                RunningState::Running => libinitception::app_interface::ApplicationStatus::Running,
+                RunningState::Stopped => libinitception::app_interface::ApplicationStatus::Stopped,
+                RunningState::Paused => libinitception::app_interface::ApplicationStatus::Paused,
+                RunningState::WaitForConnect => libinitception::app_interface::ApplicationStatus::Running,
                 //RunningState::Killed => response.set_status(ApplicationStatus::Stopped),
-                RunningState::Unknown => libinitception::app_manager_interface::ApplicationStatus::Stopped,
+                RunningState::Unknown => libinitception::app_interface::ApplicationStatus::Stopped,
                 //RunningState::Zombie => response.set_status(ApplicationStatus::Stopped),
             };
             Ok(response)
         } else {
-            Err(libinitception::app_manager_interface::LifecycleControlError::Unknown)
+            Err(libinitception::app_interface::LifecycleControlError::Unknown)
         }
     }
 

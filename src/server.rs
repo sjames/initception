@@ -44,7 +44,7 @@ use std::sync::Arc;
 use crate::servers::lifecycle::LifecycleServerImpl;
 use libinitception::initrc;
 
-use libinitception::app_manager_interface::*;
+use libinitception::app_interface::*;
 /*  New implementation for ServiceManager
 */
 use someip::*;

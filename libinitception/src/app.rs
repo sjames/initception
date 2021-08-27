@@ -29,7 +29,7 @@ use std::time::SystemTime;
 use thiserror::Error;
 // Error returned by Applications
 
-use crate::app_manager_interface::*;
+//use crate::app_manager_interface::*;
 
 #[derive(Error, Debug)]
 pub enum AppError {
@@ -46,7 +46,7 @@ fn get_fd(env_variable_key: &str) -> Result<i32, Box<dyn Error>> {
         let raw_fd: i32 = address
             .parse()
             .unwrap_or_else(|_| panic!("Malformed socket number in {}", env_variable_key));
-        //let std_stream = unsafe { UnixStream::from_raw_fd(raw_fd) };
+        env::remove_var(env_variable_key);
         Ok(raw_fd)
     } else {
         Err(Box::new(std::io::Error::from(
@@ -56,13 +56,16 @@ fn get_fd(env_variable_key: &str) -> Result<i32, Box<dyn Error>> {
 }
 
 /// Get the UnixStream for the client on the application
-pub fn get_client_fd() -> Result<i32, Box<dyn Error>> {
-    get_fd(NOTIFY_APP_CLIENT_FD)
+pub fn get_client_fd() -> Result<UnixStream, Box<dyn Error>> {
+    let raw_fd = get_fd(NOTIFY_APP_CLIENT_FD)?;
+    Ok(unsafe{UnixStream::from_raw_fd(raw_fd)})
+
 }
 
 /// Get the UnixStream for the server on the application
-pub fn get_server_fd() -> Result<i32, Box<dyn Error>> {
-    get_fd(NOTIFY_APP_SERVER_FD)
+pub fn get_server_fd() -> Result<UnixStream, Box<dyn Error>> {
+    let raw_fd = get_fd(NOTIFY_APP_SERVER_FD)?;
+    Ok(unsafe{UnixStream::from_raw_fd(raw_fd)})
 }
 
 pub const NOTIFY_APP_CLIENT_FD: &str = "NOTIFY_APP_CLIENT_FD";

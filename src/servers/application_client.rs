@@ -3,7 +3,7 @@ use std::time::Duration;
 use someip::CallProperties;
 use thiserror::Error;
 
-use libinitception::app_manager_interface::{*};
+use libinitception::app_interface::*;
 
 use tokio::sync::mpsc::{Receiver, Sender};
 

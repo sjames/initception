@@ -3,7 +3,7 @@ pub mod application_events;
 pub mod config;
 pub mod initrc;
 //mod src_gen;
-pub mod app_manager_interface;
+pub mod app_interface;
 
 //pub use src_gen::application_interface;
 //pub use src_gen::application_interface_ttrpc::ApplicationServiceClient;
