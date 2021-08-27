@@ -373,8 +373,11 @@ pub async fn manage_a_service(
 
                 let config = Configuration::default();
 
+
+                debug!("Creating Application proxy");
                 let proxy = ApplicationControlProxy::new(id_of_service(ApplicationControlProxy::service_name()).unwrap(),1,config);
                 let p = proxy.clone();
+                debug!("Created Application proxy");
 
                 //start processing the client
                 tokio::spawn(async move {
