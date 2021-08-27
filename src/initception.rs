@@ -19,14 +19,7 @@ use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 use tokio::signal::unix::{signal, SignalKind};
-use tokio::stream::StreamExt;
-
-use tokio::time::delay_for;
 use tracing::{debug, error, info};
-//use uuid;
-
-// For rtnetlink
-//use tokio::stream::TryStreamExt;
 
 use crate::common::*;
 use crate::context::{Context, ContextReference};
@@ -202,7 +195,7 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
 
                     if let Some(time_ms) = cloned_context.read().unwrap().check_restart(id) {
                         tokio::spawn(async move {
-                            delay_for(Duration::from_millis(time_ms as u64)).await;
+                            tokio::time::sleep(Duration::from_millis(time_ms as u64)).await;
                             if tx.send(TaskMessage::RequestLaunch(id, None)).is_err() {
                                 panic!("Receiver dropped");
                             }

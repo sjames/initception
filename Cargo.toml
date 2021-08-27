@@ -25,7 +25,8 @@ unshare = { git = "https://github.com/sjames/unshare.git" }
 getopts = "0.2.21"
 futures = "0.3"
 futures-util = "0.3.4"
-tokio = { version = "0.2.9", features = ["full"] }
+#tokio = { version = "0.2.9", features = ["full"] }
+tokio = {version = "1.4.0", features = ["full"]}
 toml = "0.5"
 either = {version = "1.5", features = ["serde"]}
 petgraph = "0.4"
