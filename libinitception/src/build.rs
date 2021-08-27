@@ -15,6 +15,7 @@ use ttrpc_codegen::Codegen;
 use ttrpc_codegen::Customize;
 
 fn main() {
+    /* 
     //let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
     let out_dir = "src/src_gen";
     let protos = vec!["proto/application_interface.proto"];
@@ -35,4 +36,5 @@ fn main() {
         })
         .run()
         .expect("Gen async code failed.");
+        */
 }

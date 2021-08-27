@@ -27,14 +27,15 @@ use crate::context::{ContextReference, RuntimeEntityReference, ServiceIndex};
 
 //use crate::application::src_gen::application_interface_ttrpc::{ApplicationServiceClient};
 use crate::servers::application_client::ApplicationServiceWrapper;
+use crate::servers::lifecycle::LifecycleControlServer;
 
-use libinitception::application_interface;
-use libinitception::{ApplicationManager, ApplicationServiceClient, LifecycleServer};
+//use libinitception::application_interface;
+//use libinitception::{ApplicationManager, ApplicationServiceClient, LifecycleServer};
 
 use async_trait::async_trait;
 
-use ttrpc::r#async::Client;
-use ttrpc::r#async::Server;
+//use ttrpc::r#async::Client;
+//use ttrpc::r#async::Server;
 
 //use std::os::unix::io::FromRawFd;
 use std::os::unix::io::IntoRawFd;
@@ -262,168 +263,6 @@ impl ServiceManager {
     }
 }
 
-#[async_trait]
-impl ApplicationManager for ServiceManager {
-    async fn heartbeat(
-        &self,
-        _ctx: &::ttrpc::r#async::TtrpcContext,
-        _req: application_interface::HeartbeatRequest,
-    ) -> ::ttrpc::Result<application_interface::HeartbeatResponse> {
-        let inner = self.inner.write().unwrap();
-        info!("Heartbeat received from : {:?}", inner.service_index);
-
-        let service = inner.get_service().unwrap();
-        let mut service = service.write().unwrap();
-        service.record_watchdog();
-
-        Ok(application_interface::HeartbeatResponse::default())
-    }
-    async fn statechanged(
-        &self,
-        _ctx: &::ttrpc::r#async::TtrpcContext,
-        _req: application_interface::StateChangedRequest,
-    ) -> ::ttrpc::Result<application_interface::StateChangedResponse> {
-        match _req.state {
-            application_interface::StateChangedRequest_State::Paused => {
-                let inner = self.inner.read().unwrap();
-                let tx = inner.tx.lock().unwrap();
-
-                if tx
-                    .send(TaskMessage::ProcessPaused(inner.service_index, None))
-                    .is_err()
-                {
-                    panic!("Receiver dropped");
-                }
-                Ok(application_interface::StateChangedResponse::default())
-            }
-            application_interface::StateChangedRequest_State::Running => {
-                let mut inner = self.inner.write().unwrap();
-
-                info!("Application is running");
-
-                // send this once
-                if let Some(tx) = inner.sender.take() {
-                    if tx.send(()).is_err() {
-                        panic!("Receiver dropped");
-                    }
-                }
-
-                let tx = inner.tx.lock().unwrap();
-
-                if tx
-                    .send(TaskMessage::ProcessRunning(inner.service_index, None))
-                    .is_err()
-                {
-                    panic!("Receiver dropped");
-                }
-                Ok(application_interface::StateChangedResponse::default())
-            }
-            application_interface::StateChangedRequest_State::Stopped => {
-                let inner = self.inner.read().unwrap();
-                let tx = inner.tx.lock().unwrap();
-
-                if tx
-                    .send(TaskMessage::ProcessStopped(inner.service_index, None))
-                    .is_err()
-                {
-                    panic!("Receiver dropped");
-                }
-                Ok(application_interface::StateChangedResponse::default())
-            }
-        }
-    }
-
-    async fn get_property(
-        &self,
-        _ctx: &::ttrpc::r#async::TtrpcContext,
-        req: application_interface::GetPropertyRequest,
-    ) -> ::ttrpc::Result<application_interface::GetPropertyResponse> {
-        let inner = self.inner.read().unwrap();
-        let mut response = application_interface::GetPropertyResponse::new();
-        if let Ok(context) = inner.context.read() {
-            if let Some(value) = context.get_property(&req.key) {
-                response.set_value(value);
-                response.set_status(application_interface::ReturnStatus::OK);
-            } else {
-                response.set_status(application_interface::ReturnStatus::ERROR);
-            }
-        } else {
-            response.set_status(application_interface::ReturnStatus::ERROR);
-        }
-        Ok(response)
-    }
-
-    async fn set_property(
-        &self,
-        _ctx: &::ttrpc::r#async::TtrpcContext,
-        req: application_interface::SetPropertyRequest,
-    ) -> ::ttrpc::Result<application_interface::SetPropertyResponse> {
-        let inner = self.inner.read().unwrap();
-        let mut response = application_interface::SetPropertyResponse::new();
-
-        if let Ok(mut context) = inner.context.write() {
-            // special handling for read only strings
-            if req.key.starts_with("ro.") {
-                // return error if the key already exists
-                if context.contains_property(&req.key) {
-                    // key exists, bail out
-                    debug!("Attempt to set read-only key {} ignored", &req.key);
-                    response.set_status(application_interface::ReturnStatus::ERROR);
-                    return Ok(response);
-                }
-            }
-            // ok not a read only property, lets continue
-            let copy = req.value.clone();
-            let key_copy = req.key.clone();
-            if let Some(previous_value) = context.write_property_unchecked(req.key, req.value) {
-                if copy == previous_value {
-                    debug!("Property written but value did not change.  No notifications");
-                } else {
-                    //TODO: Change property notification
-                    let tx = inner.tx.lock().unwrap();
-                    if tx
-                        .send(TaskMessage::PropertyChanged(
-                            inner.service_index,
-                            key_copy,
-                            copy,
-                        ))
-                        .is_err()
-                    {
-                        panic!("Receiver dropped");
-                    }
-                }
-            }
-
-            response.set_status(application_interface::ReturnStatus::OK);
-        } else {
-            response.set_status(application_interface::ReturnStatus::ERROR);
-        }
-        Ok(response)
-    }
-
-    async fn add_property_filter(
-        &self,
-        _ctx: &::ttrpc::r#async::TtrpcContext,
-        req: application_interface::AddPropertyFilterRequest,
-    ) -> ::ttrpc::Result<application_interface::AddPropertyFilterResponse> {
-        debug!("Adding property filter: {}", &req.regex);
-        let inner = self.inner.read().unwrap();
-        let mut response = application_interface::AddPropertyFilterResponse::new();
-        response.set_status(application_interface::ReturnStatus::ERROR);
-
-        if let Ok(context) = inner.context.read() {
-            if let Some(service) = context.get_service(inner.service_index) {
-                if let Ok(mut service) = service.write() {
-                    if let Ok(_) = service.add_property_filter(req.get_regex()) {
-                        response.set_status(application_interface::ReturnStatus::OK);
-                    }
-                }
-            }
-        }
-        Ok(response)
-    }
-}
-
 /// spawn a server to handle a service. The tx handle is used to send back messages to
 /// the main task. The stream is used to communicate with the process.
 /// the spanwnref gives you a shared reference to the launched service context
@@ -445,29 +284,31 @@ pub async fn manage_a_service(
 
     // this channel is used to signal termination of the server
     let (app_server_terminate_tx, app_server_terminate_rx) = oneshot_channel::<()>();
-    let service = Box::new(ServiceManager::new(
+    let service = Arc::new(ApplicationServerImpl::new(
         orig_context.clone(),
         tx_arc,
         service_index,
         app_running_signal_tx,
-    )) as Box<dyn ApplicationManager + Send + Sync>;
+    ));
 
-    let service = Arc::new(service);
-    let service = libinitception::create_application_manager(service);
+    //let service = Arc::new(service);
+    //let service = libinitception::create_application_manager(service);
+
+    let mut app_server_handler = ApplicationServerImpl::create_server_request_handler(service);
 
     // If the service is a Lifecycle manager, then launch the server for it.
     let lifecycle_server = if let Some(initrc::ServiceType::LifecycleManager) = service_type {
         // channel to communicate with the initception main loop
         let tx_arc = std::sync::Arc::new(std::sync::Mutex::new(tx.clone()));
 
-        let service = Box::new(LifecycleServerImpl::new(
+        let service = Arc::new(LifecycleControlServer::new(
             orig_context,
             tx_arc,
             service_index,
-        )) as Box<dyn LifecycleServer + Send + Sync>;
-        let service = Arc::new(service);
-        let service = libinitception::create_lifecycle_server(service);
-        Some(service)
+        ));
+
+        let lifecycle_server_handler = LifecycleControlServer::create_server_request_handler(service);
+        Some(lifecycle_server_handler)
     } else {
         None
     };
@@ -479,13 +320,16 @@ pub async fn manage_a_service(
         if let Some(fd) = runtime_entity.take_server_fd() {
             Some((
                 {
-                    let server = Server::new().register_service(service).set_domain_unix();
-                    // if lifecycle server exists, also register its methods
-                    if let Some(lifecycle_server) = lifecycle_server {
-                        server.register_service(lifecycle_server)
-                    } else {
-                        server
-                    }
+                    if let Some(lifecycle_handler) = lifecycle_server {
+                        app_server_handler.extend(lifecycle_handler);
+                    } 
+
+                    let handlers : Vec<(u16, Arc<dyn ServerRequestHandler>, u8, u32)> = app_server_handler.into_iter().map(|(a,h)|{
+
+                        (id_of_service(a).unwrap(),h,1,0)
+                
+                    }).collect();
+                    handlers
                 },
                 fd,
             ))
@@ -494,23 +338,21 @@ pub async fn manage_a_service(
         }
     };
 
-    if let Some((mut server, socket)) = server {
-        match server.start_single(socket).await {
-            Ok(_) => {
-                info!("Server started normally");
-                //let tmp = context.read().unwrap().get_service(service_index).unwrap();
-                let runtime_entity = context.read().unwrap();
-                let runtime_entity = runtime_entity.get_service(service_index).unwrap();
-                let runtime_entity = runtime_entity.write();
-                if let Ok(mut runtime_entity) = runtime_entity {
-                    runtime_entity.set_terminate_signal_channel(app_server_terminate_tx)
-                }
-            }
-            Err(e) => {
-                panic!("Server not created: {}", e);
+    if let Some((handlers, socket)) = server {
+
+        tokio::spawn(async move {someip::Server::serve_uds(socket, &handlers).await});
+
+        { // This block exists so that the locks are released.
+            info!("Server started normally");
+            //let tmp = context.read().unwrap().get_service(service_index).unwrap();
+            let runtime_entity = context.read().unwrap();
+            let runtime_entity = runtime_entity.get_service(service_index).unwrap();
+            let runtime_entity = runtime_entity.write();
+            if let Ok(mut runtime_entity) = runtime_entity {
+                runtime_entity.set_terminate_signal_channel(app_server_terminate_tx)
             }
         }
-
+    
         // wait for a "reasonable time" for the application to connect back.  The application must
         // load the server before connecting back so the client we launch here does not fail.
         let app_client_server = if timeout(Duration::from_millis(2000), app_running_signal_rx)
@@ -528,8 +370,21 @@ pub async fn manage_a_service(
             let runtime_entity = runtime_entity.as_deref_mut().unwrap();
 
             if let Some(fd) = runtime_entity.take_client_fd() {
+
+                let config = Configuration::default();
+
+                let proxy = ApplicationControlProxy::new(id_of_service(ApplicationControlProxy::service_name()).unwrap(),1,config);
+                let p = proxy.clone();
+
+                //start processing the client
+                tokio::spawn(async move {
+                    ApplicationControlProxy::run_uds(p,fd).await}
+                );
+
+                // The term "server" here is confusing. It is a server for messages coming from within initception
+                // but also a proxy to talk to the application.
                 let (server, proxy) = ApplicationServiceWrapper::new_pair(
-                    ApplicationServiceClient::new(Client::new(fd.into_raw_fd())),
+                    proxy
                 );
                 maybe_server = Some(server);
                 runtime_entity.set_service_proxy(proxy);
@@ -546,9 +401,7 @@ pub async fn manage_a_service(
         match app_server_terminate_rx.await {
             Ok(_) => {
                 debug!("App server received termination message");
-                if server.shutdown().await.is_err() {
-                    error!("App server shutdown failure");
-                }
+               
             }
             Err(_) => {
                 panic!("App server terminate channel error");

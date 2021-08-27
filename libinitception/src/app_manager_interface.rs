@@ -34,6 +34,9 @@ pub trait ApplicationControl {
     /// Stop all activities. The process may get killed after this
     /// call is acknowledged.
     async fn stop(&self) -> Result<(), ApplicationControlError>;
+
+    /// A system session has changed
+    async fn session_changed(&self, session_name: String) -> Result<(), ApplicationControlError>;
     /// A property that the application is interested in has changed. The 
     /// property key and value is sent.
     async fn on_property_changed(&self, key: String, value: String) -> Result<(), ApplicationControlError>;
@@ -187,4 +190,17 @@ pub trait ApplicationServer {
     /// be sent to the application via the `ApplicationControl::on_property_changed" method.
     async fn set_property_filter(&self, regex_filter: String) -> Result<(),ApplicationManagerError>;
 
+}
+
+
+pub type ServiceId =  u16;
+
+///Find the id of the given service name.
+pub fn id_of_service(name: &str) -> Option<ServiceId> {
+    match name {
+        "dev.sabaton.ApplicationControl" => Some(1),
+        "dev.sabaton.LifecycleControl"   => Some(2),
+        "dev.sabaton.ApplicationServer" => Some(3),
+        _ => None
+    }
 }

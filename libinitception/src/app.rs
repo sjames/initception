@@ -11,13 +11,13 @@
     limitations under the License.
 */
 
-use crate::src_gen::{application_interface, application_interface_ttrpc as app_int};
+//use crate::src_gen::{application_interface, application_interface_ttrpc as app_int};
 /// Application API.  Applications communicate with the init process
 /// using ttrpc. These interfaces hide the use of ttrpc.
 ///
 use async_trait::async_trait;
 
-pub use ttrpc::r#async::{Client, Server};
+//pub use ttrpc::r#async::{Client, Server};
 
 use std::env;
 use std::error::Error;
@@ -28,6 +28,8 @@ use std::time::SystemTime;
 
 use thiserror::Error;
 // Error returned by Applications
+
+use crate::app_manager_interface::*;
 
 #[derive(Error, Debug)]
 pub enum AppError {
@@ -69,19 +71,26 @@ pub const NOTIFY_APP_SERVER_FD: &str = "NOTIFY_APP_SERVER_FD";
 // Special names for applications
 pub const APPNAME_LIFECYCLE_MANAGER: &str = "lifecycle.manager";
 
+/*
+
 // Application entry
 pub struct ApplicationClient {
-    manager_proxy: app_int::ApplicationManagerClient,
-    lifecycle_proxy: app_int::LifecycleServerClient,
+    manager_proxy: ApplicationServerProxy,
+    lifecycle_proxy: LifecycleControlProxy,
 }
 
 impl ApplicationClient {
     pub fn new() -> Self {
         let client_fd = get_client_fd().unwrap();
-        let client = Client::new(client_fd);
+        //let client = Client::new(client_fd);
+        let config = Configuration::default();
+        let manager_proxy = ApplicationServerProxy::new(id_of_service(ApplicationServerProxy::service_name()).unwrap(),0, config.clone());
+        let client_dispatcher = manager_proxy.get_dispatcher();
+        let lifecycle_proxy = LifecycleControlProxy::new(id_of_service(LifecycleControlProxy::service_name()).unwrap(),config.clone(),client_dispatcher);
+
         ApplicationClient {
-            manager_proxy: app_int::ApplicationManagerClient::new(client.clone()),
-            lifecycle_proxy: app_int::LifecycleServerClient::new(client),
+            manager_proxy,
+            lifecycle_proxy,
         }
     }
 
@@ -92,6 +101,7 @@ impl ApplicationClient {
         let mut req = application_interface::StateChangedRequest::new();
         req.set_state(application_interface::StateChangedRequest_State::Running);
         let _reply = self.manager_proxy.statechanged(&req, 0).await;
+
     }
 
     pub async fn set_is_paused(&mut self) {
@@ -457,3 +467,5 @@ pub async fn start_server(mut server: Server) -> Server {
     }
     server
 }
+
+*/

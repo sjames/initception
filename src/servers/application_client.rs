@@ -3,8 +3,6 @@ use std::time::Duration;
 use someip::CallProperties;
 use thiserror::Error;
 
-use libinitception::application_interface;
-use libinitception::ApplicationServiceClient;
 use libinitception::app_manager_interface::{*};
 
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -324,6 +322,7 @@ pub enum ServiceProxyError {
     Unknown,
 }
 
+/*
 impl From<application_interface::ReturnStatus> for ServiceProxyError {
     fn from(status: application_interface::ReturnStatus) -> Self {
         match status {
@@ -333,3 +332,4 @@ impl From<application_interface::ReturnStatus> for ServiceProxyError {
         }
     }
 }
+*/
