@@ -1,15 +1,12 @@
 [package]
 name = "libinitception"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Sojan James <sojan.james@gmail.com>"]
 edition = "2018"
-build = "src/build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ttrpc = { git = "https://github.com/sjames/ttrpc-rust.git", features = ["async"] }
-protobuf = "2.8.0"
 async-trait = "0.1.31"
 serde = { version = "1", features = ["derive"] }
 serde_with = "1.9.4"
@@ -21,6 +18,5 @@ someip_derive = {git = "https://github.com/sjames/someip.git"}
 #someip = {path = "../../someip"}
 #someip_derive = {path = "../../someip/generator_macros"}
 
-[build-dependencies]
-ttrpc-codegen = "0.1.2"
+
 
