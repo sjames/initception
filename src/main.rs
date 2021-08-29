@@ -14,6 +14,7 @@
 // Main entry point
 
 use getopts::Options;
+use initception::initception::InitceptionConfig;
 use std::env;
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
@@ -56,21 +57,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "sysfswalk" => sysfs_walker::sysfs_walker_main(key),
             others => {
                 initception::launcher::launch(others)
-                /*
-                error!("FATAL: Unknown identity for INITCEPTION");
-                Err(Box::new(std::io::Error::from(
-                    std::io::ErrorKind::InvalidInput,
-                )))
-                */
             }
         }
     } else {
         info!("I N I T C E P T I O N");
-        if notpid1.is_some() {
-            initception::initception::initception_main(false)
-        } else {
-            // launch as PID1
-            initception::initception::initception_main(true)
-        }
+
+        let init_config = InitceptionConfig::default();
+        let init_config = if notpid1.is_none() {init_config.enable_early_mounts(true)} else { init_config};
+        initception::initception::initception_main(init_config)
     }
 }

@@ -31,20 +31,46 @@ use crate::sysfs_walker;
 use crate::ueventd;
 use crate::zygote;
 
-pub fn initception_main(pid1: bool) -> Result<(), Box<dyn Error>> {
-    if pid1 {
+pub struct InitceptionConfig {
+    /// Enable loopback network interface without
+    /// explicit configuration.
+    configure_lo : bool,
+    /// perform early mounts. The initrd normally performs
+    /// the early mounts so this is disabled by default.
+    early_mounts : bool,
+}
+
+impl Default for InitceptionConfig {
+    fn default() -> Self {
+        Self { configure_lo: false, early_mounts : false }
+    }
+}
+
+impl InitceptionConfig {
+    pub fn enable_lo(mut self, en: bool) -> Self {
+        self.configure_lo = en;
+        self
+    }
+    pub fn enable_early_mounts(mut self, en: bool) -> Self {
+        self.early_mounts = en;
+        self
+    }
+}
+
+pub fn initception_main(config: InitceptionConfig) -> Result<(), Box<dyn Error>> {
+
+    if config.early_mounts {
         if let Err(e) = device::mount_basics() {
             error!("Unable to mount basics");
             return Err(e);
         }
-    }
 
-    if pid1 {
         if let Err(e) = device::make_basic_devices() {
             error!("Unable to make basic devices");
             return Err(e);
         }
     }
+
 
     if let Err(e) = zygote::launch_zygote() {
         error!("Error launching zygote");
@@ -55,7 +81,7 @@ pub fn initception_main(pid1: bool) -> Result<(), Box<dyn Error>> {
     let context = Arc::new(RwLock::new(context));
 
     //info!("Loaded config : {:?}", context);
-    match init_async_main(context) {
+    match init_async_main(context, config) {
         Err(e) => Err(Box::new(e)),
         Ok(()) => {
             error!("init terminating");
@@ -66,21 +92,20 @@ pub fn initception_main(pid1: bool) -> Result<(), Box<dyn Error>> {
 
 pub fn initception_main_static(
     configs: &[&dyn ApplicationConfig],
-    is_pid1: bool,
+    config: InitceptionConfig,
 ) -> Result<(), Box<dyn Error>> {
-    if is_pid1 {
+
+    if config.early_mounts {
         if let Err(e) = device::mount_basics() {
             error!("Unable to mount basics");
             return Err(e);
         }
-    }
-
-    if is_pid1 {
         if let Err(e) = device::make_basic_devices() {
             error!("Unable to make basic devices");
             return Err(e);
         }
     }
+    
 
     // Create initial context by loading from config file.
     let mut context = Context::create_context().unwrap();
@@ -96,7 +121,7 @@ pub fn initception_main_static(
     context.fixup_dependencies();
     let context = Arc::new(RwLock::new(context));
 
-    match init_async_main(context) {
+    match init_async_main(context, config) {
         Err(e) => Err(Box::new(e)),
         Ok(()) => {
             error!("init terminating");
@@ -119,16 +144,20 @@ fn create_uuid(rng: &mut rand::rngs::SmallRng) -> String {
 */
 
 #[tokio::main]
-async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error> {
+async fn init_async_main(context: ContextReference, config : InitceptionConfig) -> Result<(), std::io::Error> {
     let (tx_orig, rx) = std::sync::mpsc::channel::<TaskMessage>();
 
     {
+        // get the list of services that can be started immediately
         let initial_services = context.read().unwrap().get_initial_services();
 
         let tx = tx_orig.clone();
-        info!("asyn main started");
-        if tx.send(TaskMessage::ConfigureNetworkLoopback).is_err() {
-            panic!("Receiver dropped when configuring network");
+        debug!("async main started");
+
+        if config.configure_lo {
+            if tx.send(TaskMessage::ConfigureNetworkLoopback).is_err() {
+                panic!("Receiver dropped when configuring network");
+            }
         }
 
         for service_idx in initial_services {
@@ -158,10 +187,10 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
             let tx = tx_orig.clone();
             match msg {
                 TaskMessage::ConfigureNetworkLoopback => tokio::spawn(async move {
-                    //debug!("Configure Loopback network interface");
-                    //let ip = IpNetwork::V4("127.0.0.1".parse().unwrap());
-                    //network::configure_network_interface(ip, String::from("lo")).await
-                    debug!("Loopback network set up (skipped)");
+                    debug!("Configure Loopback network interface");
+                    let ip = ipnetwork::IpNetwork::V4("127.0.0.1".parse().unwrap());
+                    let _ = crate::network::configure_network_interface(ip, String::from("lo"));
+                    debug!("Loopback network set up");
                 }),
                 TaskMessage::ProcessRunning(id, _notify) => tokio::spawn(async move {
                     debug!("Process Running {:?}", id);

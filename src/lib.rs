@@ -42,3 +42,4 @@ pub mod userids;
 pub mod uventrc_parser;
 pub mod zygote;
 
+pub use initception::InitceptionConfig;

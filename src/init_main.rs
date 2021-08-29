@@ -15,6 +15,7 @@ use getopts::Options;
 use std::env;
 
 use crate::initception;
+use crate::initception::InitceptionConfig;
 use crate::sysfs_walker;
 use crate::zygote;
 use libinitception::config::{ApplicationConfig, CreateParams, RunParams};
@@ -105,7 +106,8 @@ pub fn init_main(configs: &[&dyn ApplicationConfig]) -> Result<(), Box<dyn std::
         }
     } else {
         info!("I N I T C E P T I O N");
-        initception::initception_main_static(configs, !notpid1)
+        let initception_config = InitceptionConfig::default().enable_early_mounts(!notpid1);
+        initception::initception_main_static(configs, initception_config)
     }
 }
 
