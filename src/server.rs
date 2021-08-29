@@ -371,7 +371,7 @@ pub async fn manage_a_service(
 
             if let Some(fd) = runtime_entity.take_client_fd() {
 
-                let config = Configuration::default();
+                let config = Arc::new(Configuration::default());
 
 
                 debug!("Creating Application proxy");
