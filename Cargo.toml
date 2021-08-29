@@ -31,7 +31,7 @@ tracing = "0.1"
 tracing-subscriber = "0.1.6"
 tokio-serde = "0.8"
 tokio-util = {version = "0.6.7", features = ["codec"]}
-rtnetlink = "0.2"
+rtnetlink = "0.8.0"
 ipnetwork = "0.16.0"
 # Lazy static is needed only for the client. Remember to move this when moving the client library to its own crate
 lazy_static = "1.4"
