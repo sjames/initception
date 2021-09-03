@@ -173,7 +173,7 @@ async fn init_async_main(context: ContextReference, config : InitceptionConfig) 
     // Spawn the task for uevent processing
     let tx = tx_orig.clone();
     // uevent calls blocking functions.
-    tokio::task::spawn_blocking(|| ueventd::uevent_main(tx));
+    tokio::spawn(async move {ueventd::uevent_main(tx).await});
 
     let cloned_context = context.clone();
     // Needed for the signal function below
