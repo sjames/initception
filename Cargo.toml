@@ -37,9 +37,9 @@ ipnetwork = "0.16.0"
 lazy_static = "1.4"
 rand_core = "0.5"
 rand = {version = "0.7.3", features = ["small_rng"]}
-netlink-proto = "0.2"
-netlink-sys = "0.2"
-netlink-packet = "0.1"
+netlink-proto = "0.7.0"
+netlink-sys = {version = "0.7.0", features = ["tokio_socket"]}
+netlink-packet = "0.1.1"
 walkdir = "2"
 libc = "0.2"
 protobuf = "2.8.0"

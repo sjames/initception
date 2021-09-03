@@ -66,7 +66,7 @@ pub fn load_config() -> Option<UEventRcConfig> {
         info!("Loaded ueventd.rc");
         Some(config)
     } else {
-        error!("Failed to load initrc");
+        error!("Failed to load {}", UEVENTD_CFG_LOCATION);
         None
     }
 }

@@ -15,7 +15,7 @@ use crate::common::{DeviceChangeInfo, TaskMessage};
 use crate::userids;
 use crate::uventrc_parser;
 
-use netlink_sys::{Protocol, Socket, SocketAddr};
+use netlink_sys::{TokioSocket, SocketAddr, protocols};
 use nix::sys::stat::makedev;
 use nix::sys::stat::{mknod, mode_t, Mode, SFlag};
 use std::convert::TryFrom;
@@ -157,12 +157,12 @@ pub async fn uevent_main(tx: std::sync::mpsc::Sender<TaskMessage>) {
     debug!("uevent_main started");
     let kernel_unicast: SocketAddr = SocketAddr::new(0, 0xFFFF_FFFF);
     if let Some(uevent_cfg) = uventrc_parser::load_config() {
-        let mut socket = Socket::new(Protocol::KObjectUevent).unwrap();
+        let mut socket = TokioSocket::new(protocols::NETLINK_KOBJECT_UEVENT).unwrap();
         debug!("uevent processing started");
         if let Err(err) = socket.bind(&kernel_unicast) {
             error!("Unable to bind socket due to {}", err);
         } else {
-            let mut buf = vec![0; 1024 * 1];
+            let mut buf = vec![0; 1024 * 10];
 
             if tx.send(TaskMessage::UeventReady).is_err() {
                 panic!("Receiver dropped");
