@@ -154,6 +154,7 @@ impl TryFrom<&[u8]> for UEvent {
 
 /// This function calls blocking functions.
 pub async fn uevent_main(tx: std::sync::mpsc::Sender<TaskMessage>) {
+    debug!("uevent_main started");
     let kernel_unicast: SocketAddr = SocketAddr::new(0, 0xFFFF_FFFF);
     if let Some(uevent_cfg) = uventrc_parser::load_config() {
         let mut socket = Socket::new(Protocol::KObjectUevent).unwrap();
@@ -184,6 +185,7 @@ pub async fn uevent_main(tx: std::sync::mpsc::Sender<TaskMessage>) {
     } else {
         panic!("Unable to parse ueventd config");
     }
+    debug!("uevent_main ended");
 }
 
 fn handle_uevent(event: UEvent, cfg: &UEventRcConfig) -> Result<DeviceChangeInfo, ()> {
