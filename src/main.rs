@@ -24,6 +24,7 @@ use initception::sysfs_walker;
 use initception::zygote;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    unsafe{libc::umask(0o007)};
     print!(".");
 
     let subscriber = FmtSubscriber::builder()
