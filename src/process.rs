@@ -16,12 +16,12 @@ Process related.
 Use unshare to launch processes or containers.
 */
 
-use crate::context::{RunningState, RuntimeEntity, RuntimeEntityReference};
+use crate::{InitceptionConfig, context::{RunningState, RuntimeEntity, RuntimeEntityReference}};
 use libinitception::initrc::{Cap, Ns, Type};
 
 use unshare::{Capability, Fd, Namespace};
 
-use std::os::unix::io::IntoRawFd;
+use std::{os::unix::io::IntoRawFd, str::FromStr};
 use std::os::unix::net::UnixStream;
 
 use tracing::{debug, error, info};
@@ -191,7 +191,7 @@ pub async fn stop_service(spawned_ref: RuntimeEntityReference) -> Result<(), nix
 
 /// launch a process, returining the Child structure for the newly
 /// launched child process
-pub fn launch_service(spawned_ref: RuntimeEntityReference) -> Result<(), nix::Error> {
+pub fn launch_service(spawned_ref: RuntimeEntityReference, config: &InitceptionConfig) -> Result<(), nix::Error> {
     let mut entity: &mut RuntimeEntity = &mut spawned_ref.write().unwrap();
 
     if let &mut RuntimeEntity::Service(spawn) = &mut entity {
@@ -204,22 +204,40 @@ pub fn launch_service(spawned_ref: RuntimeEntityReference) -> Result<(), nix::Er
         let mut namespaces = Vec::<Namespace>::new();
         let mut keepcaps = Vec::<Capability>::new();
 
+        let process_uid =  service.uid.clone().unwrap_or(0);
+        cmd.uid(process_uid);
+
+        let process_gid =  service.gid.clone().unwrap_or(0);
+        cmd.gid(process_gid);
+
+
         if let Some(workdir) = &service.workdir {
             cmd.current_dir(workdir);
         } else {
-            cmd.current_dir("/");
-        }
+            
+            if config.data_mount() == std::path::PathBuf::from_str("/").unwrap()  {
+                cmd.current_dir(&config.data_mount());
+            } else {   
+                let home = config.data_mount().join(&service.name);
+                if !home.exists() {
+                    // Owner has write, execute. Group members can read.
+                    if let Err(e) = nix::unistd::mkdir(&home, nix::sys::stat::Mode::S_IRWXU | nix::sys::stat::Mode::S_IRGRP) {
+                        println!("Error: failed to create home directory {} due to {}", home.display(),e);
+                        return Err(e);
+                    }
 
-        if let Some(uid) = service.uid {
-            cmd.uid(uid);
-        }
-
-        if let Some(group) = service.gid {
-            cmd.gid(group);
+                    if let Err(e) = nix::unistd::chown(&home, Some(nix::unistd::Uid::from_raw(process_uid)), Some(nix::unistd::Gid::from_raw(process_gid))) {
+                        println!("Error: changing ownership of directory {} due to {}", home.display(),e);
+                        return Err(e);
+                    }
+                }
+                // If the home directory exists, it must have the right permissions set
+                cmd.current_dir(&home);
+            };
         }
 
         if let Some(groups) = &service.groups {
-            cmd.groups(groups.clone()); //TODO: why is clone needed here?
+            cmd.groups(groups.clone()); 
         }
         if let Some(nspaces) = &service.namespaces {
             //println!("Before ns loop");
@@ -344,6 +362,7 @@ pub fn launch_service(spawned_ref: RuntimeEntityReference) -> Result<(), nix::Er
 
         cmd.env(NOTIFY_APP_SERVER_FD, format!("{}", raw_fd));
         cmd.file_descriptor(raw_fd, Fd::inherit());
+        
 
         debug!("Before spawn");
         let child = match cmd.spawn() {

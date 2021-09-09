@@ -15,6 +15,8 @@ extern crate tokio;
 extern crate unshare;
 
 use std::error::Error;
+use std::path::PathBuf;
+use std::str::FromStr;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
@@ -38,11 +40,16 @@ pub struct InitceptionConfig {
     /// perform early mounts. The initrd normally performs
     /// the early mounts so this is disabled by default.
     early_mounts : bool,
+    /// Path to the data partition if present. If a data
+    /// partition is present, a directory will be created in it
+    /// for each application and the application home directory will be 
+    /// set to it
+    data_root : PathBuf,
 }
 
 impl Default for InitceptionConfig {
     fn default() -> Self {
-        Self { configure_lo: false, early_mounts : false }
+        Self { configure_lo: false, early_mounts : false, data_root: PathBuf::from_str("/").unwrap() }
     }
 }
 
@@ -54,6 +61,13 @@ impl InitceptionConfig {
     pub fn enable_early_mounts(mut self, en: bool) -> Self {
         self.early_mounts = en;
         self
+    }
+    pub fn set_data_mount(mut self, data_root: PathBuf) -> Self {
+        self.data_root = data_root;
+        self
+    }
+    pub fn data_mount(&self) -> &std::path::Path {
+        self.data_root.as_path()
     }
 }
 
@@ -77,11 +91,11 @@ pub fn initception_main(config: InitceptionConfig) -> Result<(), Box<dyn Error>>
         return Err(e);
     }
 
-    let context = Context::create_context().unwrap();
+    let context = Context::create_context(config).unwrap();
     let context = Arc::new(RwLock::new(context));
 
     //info!("Loaded config : {:?}", context);
-    match init_async_main(context, config) {
+    match init_async_main(context) {
         Err(e) => Err(Box::new(e)),
         Ok(()) => {
             error!("init terminating");
@@ -108,7 +122,7 @@ pub fn initception_main_static(
     
 
     // Create initial context by loading from config file.
-    let mut context = Context::create_context().unwrap();
+    let mut context = Context::create_context(config).unwrap();
     for app in configs {
         context.add_service(*app);
     }
@@ -121,7 +135,7 @@ pub fn initception_main_static(
     context.fixup_dependencies();
     let context = Arc::new(RwLock::new(context));
 
-    match init_async_main(context, config) {
+    match init_async_main(context) {
         Err(e) => Err(Box::new(e)),
         Ok(()) => {
             error!("init terminating");
@@ -144,7 +158,7 @@ fn create_uuid(rng: &mut rand::rngs::SmallRng) -> String {
 */
 
 #[tokio::main]
-async fn init_async_main(context: ContextReference, config : InitceptionConfig) -> Result<(), std::io::Error> {
+async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error> {
     let (tx_orig, rx) = std::sync::mpsc::channel::<TaskMessage>();
 
     {
@@ -154,9 +168,13 @@ async fn init_async_main(context: ContextReference, config : InitceptionConfig) 
         let tx = tx_orig.clone();
         debug!("async main started");
 
-        if config.configure_lo {
-            if tx.send(TaskMessage::ConfigureNetworkLoopback).is_err() {
-                panic!("Receiver dropped when configuring network");
+        { // This block is intentional to release the read lock on the context immediately.
+            let context = context.read().unwrap();
+            let config = context.config();
+            if config.configure_lo {
+                if tx.send(TaskMessage::ConfigureNetworkLoopback).is_err() {
+                    panic!("Receiver dropped when configuring network");
+                }
             }
         }
 

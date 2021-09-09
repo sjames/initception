@@ -15,6 +15,7 @@ use petgraph::prelude::NodeIndex;
 use petgraph::Direction;
 use petgraph::Graph;
 
+use crate::InitceptionConfig;
 use crate::mount;
 use crate::network;
 use crate::process::{launch_service, stop_service};
@@ -225,6 +226,7 @@ impl SpawnedService {
 pub struct Context {
     children: Graph<RuntimeEntityReference, u32>,
     properties: HashMap<String, String>,
+    config : InitceptionConfig,
 }
 
 impl Context {
@@ -244,6 +246,10 @@ impl Context {
 
     pub fn contains_property(&self, key: &str) -> bool {
         self.properties.contains_key(key)
+    }
+
+    pub fn config(&self) -> &InitceptionConfig {
+        &self.config
     }
 
     /// get the name of the runtime entity. it can either be a service or a unit.
@@ -334,10 +340,11 @@ pub type ContextReference = std::sync::Arc<std::sync::RwLock<Context>>;
 
 impl<'a> Context {
     // Create empty context
-    pub fn new() -> Context {
+    pub fn new(config: InitceptionConfig) -> Context {
         Context {
             children: Graph::new(),
             properties: HashMap::new(),
+            config,
         }
     }
 
@@ -378,11 +385,12 @@ impl<'a> Context {
 
     /// convert the Config structure to a context structure. The context structure includes
     /// a graph of the services.
-    pub fn create_context() -> Option<Context> {
+    pub fn create_context(initception_config: InitceptionConfig) -> Option<Context> {
         if let Some(cfg) = load_config() {
             let mut context = Context {
                 children: Graph::new(),
                 properties: HashMap::new(),
+                config : initception_config,
             };
             for it in cfg.service {
                 let spawn = SpawnedService {
@@ -482,7 +490,7 @@ impl<'a> Context {
 
             Some(context)
         } else {
-            Some(Self::new())
+            Some(Self::new(initception_config))
         }
     }
 
@@ -660,7 +668,7 @@ impl<'a> Context {
     }
 
     pub fn launch_service(&self, index: ServiceIndex) -> Result<(), nix::Error> {
-        launch_service(self.children[index].clone()) // launch_service does the checks.
+        launch_service(self.children[index].clone(),self.config()) // launch_service does the checks.
     }
 
     pub async fn kill_service_dep(&self, index: ServiceIndex) -> Result<(), nix::Error> {
