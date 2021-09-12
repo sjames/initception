@@ -236,6 +236,12 @@ pub fn launch_service(spawned_ref: RuntimeEntityReference, config: &InitceptionC
             };
         }
 
+        if let Some(start_params) = &service.start_params {
+            for p in start_params {
+                cmd.arg(p);
+            }
+        }
+
         if let Some(groups) = &service.groups {
             cmd.groups(groups.clone()); 
         }
