@@ -77,7 +77,7 @@ impl ApplicationServerImpl {
 impl ApplicationServer for ApplicationServerImpl {
     async fn heartbeat(&self, counter: u32) -> Result<(),ApplicationManagerError> {
         let inner = self.inner.write().unwrap();
-        debug!("Heartbeat received from : {:?} counter {}", inner.service_index, counter);
+        info!("Heartbeat received from : {:?} counter {}", inner.service_index, counter);
         let service = inner.get_service().unwrap();
         let mut service = service.write().unwrap();
         service.record_watchdog();
