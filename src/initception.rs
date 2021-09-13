@@ -316,6 +316,7 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                         let context = cloned_context.read().unwrap();
                         (context.is_notify_type(id), context.get_name(id))
                     };
+                    debug!("{} is notify_type:{}",name.as_ref().unwrap(),notify_type);
                     let context = cloned_context.clone();
 
                     tokio::spawn(async move {
