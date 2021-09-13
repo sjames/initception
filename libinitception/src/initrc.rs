@@ -220,16 +220,17 @@ impl FromStr for ServiceType {
 
 impl Service {
     pub fn is_notify_type(&self) -> bool {
-        if let Some(t) = &self.r#type {
-            match t {
-                Type::Notify => true,
-            }
-        } else {
-            // a lifecycle manager must be a notify type
-            match self.service_type {
-                ServiceType::Normal => false,
-                ServiceType::LifecycleManager => true,
-            }
+        match self.get_service_type() {
+            ServiceType::Normal => {
+                if let Some(t) = &self.r#type {
+                    match t {
+                        Type::Notify => true,
+                    }
+                } else {
+                    false
+                }        
+            },
+            ServiceType::LifecycleManager => true,
         }
     }
 
