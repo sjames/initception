@@ -172,7 +172,7 @@ pub struct Service {
     pub workdir: Option<String>,
     pub capabilities: Option<Vec<Cap>>,
     pub env: Option<Vec<[String; 2]>>,
-    pub r#type: Option<Type>,
+    r#type: Option<Type>,
     /// Where the standard output of this process should be
     /// redirected to. Can be one of,
     /// inherit, null, tty,syslog, kmsg
@@ -225,7 +225,11 @@ impl Service {
                 Type::Notify => true,
             }
         } else {
-            false
+            // a lifecycle manager must be a notify type
+            match self.service_type {
+                ServiceType::Normal => false,
+                ServiceType::LifecycleManager => true,
+            }
         }
     }
 

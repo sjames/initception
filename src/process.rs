@@ -387,11 +387,8 @@ pub fn launch_service(spawned_ref: RuntimeEntityReference, config: &InitceptionC
         } else {
             // If the service is of type notify, we set to running only
             // after it connects back to us
-            if let Some(state) = &spawn.service.r#type {
-                match state {
-                    Type::Notify => spawn.state = RunningState::WaitForConnect,
-                }
-            } else {
+            if spawn.service.is_notify_type() {
+                spawn.state = RunningState::WaitForConnect;
             }
             spawn.start_count += 1;
         }
