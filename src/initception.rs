@@ -164,6 +164,7 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
     {
         // get the list of services that can be started immediately
         let initial_services = context.read().unwrap().get_initial_services();
+        println!("Initial services are: {:?}",&initial_services);
 
         let tx = tx_orig.clone();
         debug!("async main started");
@@ -384,9 +385,15 @@ async fn init_async_main(context: ContextReference) -> Result<(), std::io::Error
                     for dep in deps {
                         debug!("Launching dep {:?}", dep);
 
-                        if tx.send(TaskMessage::RequestLaunch(dep, None)).is_err() {
-                            panic!("Receiver dropped");
+                        if !cloned_context.read().unwrap().is_running(dep) {
+                            if tx.send(TaskMessage::RequestLaunch(dep, None)).is_err() {
+                                panic!("Receiver dropped");
+                            }
+                        } else {
+                            println!("{:?} is already running",dep );
                         }
+
+                        
                     }
                 }),
                 TaskMessage::PropertyChanged(_unit_index, key, value) => tokio::spawn(async move {
