@@ -62,6 +62,7 @@ pub enum  LifecycleControlError {
 #[derive(Serialize, Deserialize)]
 pub enum ApplicationStatus {
     Unknown,
+    Launching,
     Stopped,
     Running,
     Paused,

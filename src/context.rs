@@ -252,12 +252,39 @@ impl Context {
         &self.config
     }
 
+    /// Mark a services as requested to be launched
+    pub fn mark_launch_requested(&self, node_index: NodeIndex) {
+        let entity: &mut RuntimeEntity = &mut self.children[node_index].write().unwrap();
+        match entity {
+            RuntimeEntity::Service(service) => {
+                match &service.state {
+                    RunningState::Unknown => service.state =  RunningState::Launching,
+                    RunningState::Stopped => service.state =  RunningState::Launching,
+                    _ => {}
+                    
+                }
+            },
+            _ => {},
+        };
+
+    }
+
     /// get the name of the runtime entity. it can either be a service or a unit.
     pub fn get_name(&self, node_index: NodeIndex) -> Option<String> {
         let entity: &RuntimeEntity = &self.children[node_index].read().unwrap();
         match entity {
             RuntimeEntity::Service(service) => Some(service.service.name.clone()),
             RuntimeEntity::Unit(unit) => Some(unit.unit.name.clone()),
+        }
+    }
+
+    pub fn is_launched(&self, node_index: NodeIndex) -> bool {
+        let entity: &RuntimeEntity = &self.children[node_index].read().unwrap();
+        match entity {
+            RuntimeEntity::Service(service) => {
+                service.state.is_launched()
+            }
+            RuntimeEntity::Unit(_unit) => false,
         }
     }
 
@@ -315,6 +342,7 @@ impl Context {
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum RunningState {
     Unknown,
+    Launching,
     WaitForConnect, // waiting for process to connect and confirm running state
     Running,
     Paused,
@@ -330,6 +358,10 @@ impl RunningState {
         *self == RunningState::Running
             || *self == RunningState::Paused
             || *self == RunningState::WaitForConnect
+    }
+
+    pub fn is_launched(&self) -> bool {
+        self.is_alive() || *self == RunningState::Launching
     }
 }
 

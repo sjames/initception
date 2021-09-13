@@ -72,9 +72,8 @@ impl LifecycleControl for LifecycleControlServer {
                 RunningState::Stopped => libinitception::app_interface::ApplicationStatus::Stopped,
                 RunningState::Paused => libinitception::app_interface::ApplicationStatus::Paused,
                 RunningState::WaitForConnect => libinitception::app_interface::ApplicationStatus::Running,
-                //RunningState::Killed => response.set_status(ApplicationStatus::Stopped),
                 RunningState::Unknown => libinitception::app_interface::ApplicationStatus::Stopped,
-                //RunningState::Zombie => response.set_status(ApplicationStatus::Stopped),
+                RunningState::Launching => libinitception::app_interface::ApplicationStatus::Launching,
             };
             Ok(response)
         } else {
