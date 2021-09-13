@@ -187,14 +187,35 @@ pub struct Service {
     #[serde(default = "IODevice::default")]
     #[serde_as(as = "DisplayFromStr")]
     pub stderr : IODevice,
+    #[serde(default = "ServiceType::default")]
+    #[serde_as(as = "DisplayFromStr")]
+    pub service_type : ServiceType,
     // set to true if this configuration is static. The executable path is not used
     #[serde(skip_serializing,skip_deserializing)]
     pub is_static: bool,
 }
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug, Deserialize)]
 pub enum ServiceType {
     Normal,
     LifecycleManager,
+}
+
+impl Default for ServiceType {
+    fn default() -> Self {
+        ServiceType::Normal
+    }
+}
+
+impl FromStr for ServiceType {
+    type Err = String;
+    
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "lifecyclemanager" => Ok(Self::LifecycleManager),
+            _ => Ok(Self::Normal),
+        }
+    }
+
 }
 
 impl Service {
@@ -211,9 +232,14 @@ impl Service {
     /// Some services have special privileges. These services are
     /// identified by special prefixes in their names.
     pub fn get_service_type(&self) -> ServiceType {
-        match self.name.as_str() {
-            app::APPNAME_LIFECYCLE_MANAGER => ServiceType::LifecycleManager,
-            _ => ServiceType::Normal,
+        if self.service_type == ServiceType::LifecycleManager {
+            ServiceType::LifecycleManager
+        } else {
+            // for compatibility, check if app name
+            match self.name.as_str() {
+                app::APPNAME_LIFECYCLE_MANAGER => ServiceType::LifecycleManager,
+                _ => ServiceType::Normal,
+            }
         }
     }
 }
@@ -310,8 +336,10 @@ impl From<&dyn ApplicationConfig> for Service {
             stdin : IODevice::Null,
             stdout : IODevice::Null,
             stderr : IODevice::Null,
+
             // if created from ApplicationConfiguration, this is always static
             is_static: true,
+            ..Default::default()
         }
     }
 }
