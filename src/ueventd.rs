@@ -246,7 +246,7 @@ fn handle_add(event: UEvent, cfg: &UEventRcConfig) -> Result<DeviceChangeInfo, (
             let devpath = format!("/dev/{}", devname);
             let dev = Path::new(&devpath);
             //info!("devpath:{}", devpath);
-            if let Some((mode, user, group)) = cfg.get_device_mode_and_ids(&devpath) {
+            if let Some((mode, user, group)) =  Some((0o777,"root","root")) { // cfg.get_device_mode_and_ids(&devpath) {
                 if !dev.exists() && make_dir_if_needed(&dev) {
                     // reaching out to the unsafe function
                     // as I cannot figure out how to set the Mode directly.
