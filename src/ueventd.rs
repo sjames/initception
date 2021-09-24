@@ -157,7 +157,6 @@ use std::io::Write;
 /// This function calls blocking functions.
 pub async fn uevent_main(tx: std::sync::mpsc::Sender<TaskMessage>) {
     debug!("uevent_main started");
-    let mut kmsg = OpenOptions::new().write(true).open("/dev/kmsg").ok();
     let kernel_unicast: SocketAddr = SocketAddr::new(0, 0xFFFF_FFFF);
     if let Some(uevent_cfg) = uventrc_parser::load_config() {
         let mut socket = TokioSocket::new(protocols::NETLINK_KOBJECT_UEVENT).unwrap();
@@ -173,10 +172,12 @@ pub async fn uevent_main(tx: std::sync::mpsc::Sender<TaskMessage>) {
             loop {
                 if let Ok((n, _addr)) = &socket.recv_from(&mut buf).await {
                     if let Ok(uevent) = UEvent::try_from(&buf[0..*n]) {
-                        if let Some(mut kmsg) = kmsg.as_mut() {
-                            let e = write!(&mut kmsg,"{}",uevent);
+                        if let Some(subsystem) = uevent.maybe_subsystem.as_ref() {
+                            if subsystem.contains("block") {
+                                println!("{}", uevent);
+                            }
                         }
-                        println!("{}", uevent);
+                        
                         if let Ok(changeinfo) = handle_uevent(uevent, &uevent_cfg) {
                             if tx.send(TaskMessage::DeviceChanged(changeinfo)).is_err() {
                                 panic!("Receiver dropped");
