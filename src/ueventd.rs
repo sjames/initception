@@ -223,7 +223,7 @@ fn handle_add(event: UEvent, cfg: &UEventRcConfig) -> Result<DeviceChangeInfo, (
         // processing needed for net devices as this is
         // handled by the network module drive from the
         // main loop
-        //println!("NET SUBSYSTEM : {}", event);
+        println!("NET SUBSYSTEM : {}", event);
         let path = Path::new(&event.dev_path);
         if let Some(devname) = path.file_name() {
             Ok(DeviceChangeInfo::Added(String::from(
@@ -234,6 +234,7 @@ fn handle_add(event: UEvent, cfg: &UEventRcConfig) -> Result<DeviceChangeInfo, (
         }
     } else {
         // deal with this as a normal device
+        println!("NET SUBSYSTEM : {}", event);
         if let Some(devname) = &event.maybe_devname {
             let devpath = format!("/dev/{}", devname);
             let dev = Path::new(&devpath);
