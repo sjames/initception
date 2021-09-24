@@ -164,7 +164,7 @@ pub async fn uevent_main(tx: std::sync::mpsc::Sender<TaskMessage>) {
         if let Err(err) = socket.bind(&kernel_unicast) {
             error!("Unable to bind socket due to {}", err);
         } else {
-            let mut buf = vec![0; 1024 * 10];
+            let mut buf = vec![0; 1024 * 16];
 
             if tx.send(TaskMessage::UeventReady).is_err() {
                 panic!("Receiver dropped");
@@ -172,12 +172,7 @@ pub async fn uevent_main(tx: std::sync::mpsc::Sender<TaskMessage>) {
             loop {
                 if let Ok((n, _addr)) = &socket.recv_from(&mut buf).await {
                     if let Ok(uevent) = UEvent::try_from(&buf[0..*n]) {
-                        if let Some(subsystem) = uevent.maybe_subsystem.as_ref() {
-                            if subsystem.contains("block") {
-                                println!("{}", uevent);
-                            }
-                        }
-                        
+
                         if let Ok(changeinfo) = handle_uevent(uevent, &uevent_cfg) {
                             if tx.send(TaskMessage::DeviceChanged(changeinfo)).is_err() {
                                 panic!("Receiver dropped");
@@ -228,7 +223,7 @@ fn handle_add(event: UEvent, cfg: &UEventRcConfig) -> Result<DeviceChangeInfo, (
     } else if event.is_subsystem("net") {
         // net events will be sent everytime. No special
         // processing needed for net devices as this is
-        // handled by the network module drive from the
+        // handled by the network module driven from the
         // main loop
         println!("NET SUBSYSTEM : {}", event);
         let path = Path::new(&event.dev_path);
@@ -241,12 +236,19 @@ fn handle_add(event: UEvent, cfg: &UEventRcConfig) -> Result<DeviceChangeInfo, (
         }
     } else {
         // deal with this as a normal device
-        println!("NET SUBSYSTEM : {}", event);
         if let Some(devname) = &event.maybe_devname {
-            let devpath = format!("/dev/{}", devname);
+            let devpath = match event.maybe_subsystem.as_ref() {
+                None => format!("/dev/{}", devname),
+                Some(sub) => match sub.as_str() {
+                    "block" => format!("/dev/block/{}", devname),
+                    "input" => format!("/dev/input/{}", devname),
+                    _ => format!("/dev/{}", devname),
+                }
+            };
+
             let dev = Path::new(&devpath);
             //info!("devpath:{}", devpath);
-            if let Some((mode, user, group)) =  Some((0o777,"root","root")) { // cfg.get_device_mode_and_ids(&devpath) {
+            if let Some((mode, user, group)) =  cfg.get_device_mode_and_ids(&devpath) {
                 if !dev.exists() && make_dir_if_needed(&dev) {
                     // reaching out to the unsafe function
                     // as I cannot figure out how to set the Mode directly.
