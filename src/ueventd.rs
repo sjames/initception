@@ -170,7 +170,7 @@ pub async fn uevent_main(tx: std::sync::mpsc::Sender<TaskMessage>) {
             loop {
                 if let Ok((n, _addr)) = &socket.recv_from(&mut buf).await {
                     if let Ok(uevent) = UEvent::try_from(&buf[0..*n]) {
-                        //println!("{}", uevent);
+                        println!("{}", uevent);
                         if let Ok(changeinfo) = handle_uevent(uevent, &uevent_cfg) {
                             if tx.send(TaskMessage::DeviceChanged(changeinfo)).is_err() {
                                 panic!("Receiver dropped");
